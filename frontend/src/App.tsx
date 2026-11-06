@@ -715,13 +715,13 @@ export default function App() {
                 fontWeight: 600,
                 padding: "5px 12px",
                 borderRadius: 8,
-                background: C.surfaceAlt,
+                background: C.bg,
                 color: C.ink,
                 border: `1px solid ${C.border}`,
               }}
               title="Usuário autenticado"
             >
-              👤 {currentUser} <span style={{ color: C.inkMuted, fontWeight: 500 }}>({role})</span>
+              👤 {currentUser} <span style={{ color: C.inkSoft, fontWeight: 500 }}>({role})</span>
             </span>
 
             {view !== "novo" && (
