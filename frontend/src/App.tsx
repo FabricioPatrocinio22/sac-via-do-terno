@@ -370,7 +370,7 @@ export default function App() {
   const [npsSurveys, setNpsSurveys] = useState<any[]>([]);
   const [view, setView] = useState("dashboard");
   const [role, setRole] = useState("Administrador");
-  const [currentUser, setCurrentUser] = useState("Beatriz Nogueira");
+  const [currentUser, setCurrentUser] = useState("Administrador");
   const [toast, setToast] = useState<any>(null);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
 
@@ -389,6 +389,9 @@ export default function App() {
 
   // Carrega dados do Backend PostgreSQL ou Fallback LocalStorage
   const loadData = useCallback(async () => {
+    // Remove cache antigo de demonstração se existir
+    localStorage.removeItem("vt_sac_v1");
+
     try {
       const data = await sacApi.bootstrap();
       setConfig({ ...defaultConfig(), ...(data.config || {}) });
@@ -402,9 +405,9 @@ export default function App() {
       setBackendConnected(false);
     }
 
-    // Fallback LocalStorage
+    // Fallback LocalStorage (Produção limpa)
     try {
-      const saved = localStorage.getItem("vt_sac_v1");
+      const saved = localStorage.getItem("vt_sac_prod_v1");
       if (saved) {
         const parsed = JSON.parse(saved);
         setConfig({ ...defaultConfig(), ...(parsed.config || {}) });
@@ -413,32 +416,29 @@ export default function App() {
         setNpsSurveys(parsed.npsSurveys || []);
       } else {
         const cfg = defaultConfig();
-        const seeded = seedDemoTickets(cfg);
-        const surveys = seedDemoSurveys(seeded);
         const initialAudit = [
           {
             id: uid("log"),
             data: new Date().toISOString(),
             usuario: "Sistema",
-            acao: "Base inicial gerada",
-            detalhe: "46 atendimentos de demonstração criados.",
+            acao: "Sistema inicializado",
+            detalhe: "Base limpa pronta para operação.",
           },
         ];
         setConfig(cfg);
-        setTickets(seeded);
-        setNpsSurveys(surveys);
+        setTickets([]);
+        setNpsSurveys([]);
         setAuditLog(initialAudit);
         localStorage.setItem(
-          "vt_sac_v1",
-          JSON.stringify({ config: cfg, tickets: seeded, auditLog: initialAudit, npsSurveys: surveys })
+          "vt_sac_prod_v1",
+          JSON.stringify({ config: cfg, tickets: [], auditLog: initialAudit, npsSurveys: [] })
         );
       }
     } catch {
       const cfg = defaultConfig();
-      const seeded = seedDemoTickets(cfg);
       setConfig(cfg);
-      setTickets(seeded);
-      setNpsSurveys(seedDemoSurveys(seeded));
+      setTickets([]);
+      setNpsSurveys([]);
     }
     setReady(true);
   }, []);
@@ -451,7 +451,7 @@ export default function App() {
   useEffect(() => {
     if (!ready) return;
     try {
-      localStorage.setItem("vt_sac_v1", JSON.stringify({ config, tickets, auditLog, npsSurveys }));
+      localStorage.setItem("vt_sac_prod_v1", JSON.stringify({ config, tickets, auditLog, npsSurveys }));
     } catch {}
   }, [config, tickets, auditLog, npsSurveys, ready]);
 

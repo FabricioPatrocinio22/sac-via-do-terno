@@ -695,8 +695,17 @@ export function AdministracaoView({
             </button>
           ))}
         </div>
-        <Button size="sm" variant="secondary" icon={RefreshCcw} onClick={resetDemo}>
-          Reiniciar Dados de Demonstração
+        <Button
+          size="sm"
+          variant="danger"
+          icon={RefreshCcw}
+          onClick={() => {
+            if (window.confirm("Tem certeza que deseja zerar todos os atendimentos e pesquisas registrados?")) {
+              resetDemo();
+            }
+          }}
+        >
+          Zerar Base de Atendimentos
         </Button>
       </div>
 
@@ -971,60 +980,145 @@ function UsuariosAdmin({
   showToast: (m: string) => void;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState({ nome: "", email: "", perfil: "Atendente SAC", setor: "SAC", status: "Ativo" });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    nome: "",
+    login: "",
+    email: "",
+    senha: "",
+    perfil: "Atendente SAC",
+    setor: "SAC",
+    status: "Ativo",
+  });
 
   const openNew = () => {
-    setForm({ nome: "", email: "", perfil: "Atendente SAC", setor: "SAC", status: "Ativo" });
+    setEditingId(null);
+    setForm({
+      nome: "",
+      login: "",
+      email: "",
+      senha: "",
+      perfil: "Atendente SAC",
+      setor: "SAC",
+      status: "Ativo",
+    });
     setModalOpen(true);
   };
+
+  const openEdit = (u: any) => {
+    setEditingId(u.id);
+    setForm({
+      nome: u.nome || "",
+      login: u.login || "",
+      email: u.email || "",
+      senha: u.senha || "",
+      perfil: u.perfil || "Atendente SAC",
+      setor: u.setor || "SAC",
+      status: u.status || "Ativo",
+    });
+    setModalOpen(true);
+  };
+
   const save = () => {
-    if (!form.nome.trim() || !form.email.trim()) return;
-    onChange([...usuarios, { id: uid("u"), ...form }]);
-    addAudit("Usuário criado", `${form.nome} (${form.perfil})`);
-    showToast(`Usuário ${form.nome} criado`);
+    if (!form.nome.trim() || (!form.login.trim() && !form.email.trim())) return;
+    const finalLogin = form.login.trim() || form.email.trim().split("@")[0];
+    const finalPass = form.senha.trim() || "via@123";
+
+    if (editingId) {
+      onChange(
+        usuarios.map((u) =>
+          u.id === editingId
+            ? { ...u, ...form, nome: form.nome.trim(), login: finalLogin, senha: finalPass }
+            : u
+        )
+      );
+      addAudit("Usuário atualizado", `${form.nome} (${form.perfil})`);
+      showToast(`Usuário ${form.nome} atualizado!`);
+    } else {
+      onChange([
+        ...usuarios,
+        {
+          id: uid("u"),
+          ...form,
+          nome: form.nome.trim(),
+          login: finalLogin,
+          senha: finalPass,
+        },
+      ]);
+      addAudit("Usuário criado", `${form.nome} (login: ${finalLogin} / perfil: ${form.perfil})`);
+      showToast(`Usuário ${form.nome} criado com sucesso!`);
+    }
     setModalOpen(false);
   };
+
   const toggleStatus = (id: string) => {
     onChange(usuarios.map((u) => (u.id === id ? { ...u, status: u.status === "Ativo" ? "Inativo" : "Ativo" } : u)));
     const u = usuarios.find((x) => x.id === id);
     addAudit("Status de usuário alterado", `${u?.nome}`);
   };
+
   const remove = (id: string) => {
+    if (usuarios.length <= 1) {
+      showToast("Não é possível remover o único usuário administrador.");
+      return;
+    }
     const u = usuarios.find((x) => x.id === id);
     onChange(usuarios.filter((x) => x.id !== id));
     addAudit("Usuário removido", u?.nome);
+    showToast("Usuário removido.");
   };
 
   return (
     <Card
       title="Usuários da Equipe SAC"
+      subtitle="Cadastre ou edite o login e a senha dos operadores do SAC"
       right={
         <Button size="sm" variant="primary" icon={Plus} onClick={openNew}>
-          Novo Usuário
+          + Novo Usuário
         </Button>
       }
     >
       <table className="dt">
         <thead>
-          <tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Setor</th><th>Status</th><th></th></tr>
+          <tr>
+            <th>Nome</th>
+            <th>Usuário (Login)</th>
+            <th>E-mail</th>
+            <th>Perfil</th>
+            <th>Setor</th>
+            <th>Status</th>
+            <th style={{ textAlign: "right" }}>Ações</th>
+          </tr>
         </thead>
         <tbody>
           {usuarios.map((u) => (
             <tr key={u.id}>
               <td style={{ fontWeight: 700 }}>{u.nome}</td>
+              <td style={{ fontFamily: FONT_MONO, fontSize: 12, fontWeight: 600, color: C.wine }}>
+                {u.login || u.email?.split("@")[0] || "—"}
+              </td>
               <td>{u.email}</td>
               <td>{u.perfil}</td>
               <td>{u.setor}</td>
               <td><Badge tone={u.status === "Ativo" ? "success" : "danger"}>{u.status}</Badge></td>
-              <td style={{ display: "flex", gap: 8 }}>
+              <td style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button
+                  onClick={() => openEdit(u)}
+                  title="Editar usuário / senha"
+                  style={{ background: "none", border: "none", cursor: "pointer", color: C.inkSoft }}
+                >
+                  <Edit3 size={14} />
+                </button>
                 <button
                   onClick={() => toggleStatus(u.id)}
+                  title={u.status === "Ativo" ? "Inativar usuário" : "Ativar usuário"}
                   style={{ background: "none", border: "none", cursor: "pointer", color: C.inkSoft }}
                 >
                   {u.status === "Ativo" ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
                 <button
                   onClick={() => remove(u.id)}
+                  title="Excluir usuário"
                   style={{ background: "none", border: "none", cursor: "pointer", color: C.danger }}
                 >
                   <Trash2 size={14} />
@@ -1034,26 +1128,58 @@ function UsuariosAdmin({
           ))}
         </tbody>
       </table>
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Novo Usuário SAC">
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editingId ? "Editar Usuário SAC" : "Novo Usuário SAC"}
+      >
         <div style={{ display: "grid", gap: 12 }}>
-          <Field label="Nome" required>
-            <TInput value={form.nome} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} />
+          <Field label="Nome Completo" required>
+            <TInput
+              value={form.nome}
+              onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
+              placeholder="Ex: Isadora Melo"
+            />
           </Field>
-          <Field label="E-mail" required>
-            <TInput type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <Field label="Usuário (Login)" required>
+              <TInput
+                value={form.login}
+                onChange={(e) => setForm((f) => ({ ...f, login: e.target.value }))}
+                placeholder="Ex: isadora"
+              />
+            </Field>
+            <Field label="Senha de Acesso" required>
+              <TInput
+                type="text"
+                value={form.senha}
+                onChange={(e) => setForm((f) => ({ ...f, senha: e.target.value }))}
+                placeholder="Ex: via@123"
+              />
+            </Field>
+          </div>
+          <Field label="E-mail">
+            <TInput
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              placeholder="Ex: isadora@viadoterno.com.br"
+            />
           </Field>
-          <Field label="Perfil">
-            <TSelect value={form.perfil} onChange={(e) => setForm((f) => ({ ...f, perfil: e.target.value }))}>
-              {Object.keys(PERMS).map((p) => (
-                <option key={p}>{p}</option>
-              ))}
-            </TSelect>
-          </Field>
-          <Field label="Setor">
-            <TInput value={form.setor} onChange={(e) => setForm((f) => ({ ...f, setor: e.target.value }))} />
-          </Field>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <Field label="Perfil de Acesso">
+              <TSelect value={form.perfil} onChange={(e) => setForm((f) => ({ ...f, perfil: e.target.value }))}>
+                {Object.keys(PERMS).map((p) => (
+                  <option key={p}>{p}</option>
+                ))}
+              </TSelect>
+            </Field>
+            <Field label="Setor">
+              <TInput value={form.setor} onChange={(e) => setForm((f) => ({ ...f, setor: e.target.value }))} />
+            </Field>
+          </div>
           <Button variant="primary" icon={Save} onClick={save}>
-            Salvar Usuário
+            {editingId ? "Salvar Alterações" : "Criar Usuário"}
           </Button>
         </div>
       </Modal>

@@ -3,7 +3,6 @@ dotenv.config();
 import express from "express";
 import cors from "cors";
 import "express-async-errors";
-import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { pool } from "./db";
 import { defaultConfig } from "./defaults";
@@ -20,7 +19,7 @@ const app = express();
 app.use(cors({ origin: process.env.CORS_ORIGIN || "*" }));
 app.use(express.json({ limit: "10mb" }));
 
-const JWT_SECRET = process.env.JWT_SECRET || "jwt_secret_viadoterno_crm_session_rotation_2026_v4";
+const JWT_SECRET = process.env.JWT_SECRET || "jwt_secret_viadoterno_sac_2026_prod";
 
 function mapRowToTicket(r: any) {
   return {
@@ -73,76 +72,59 @@ function mapRowToTicket(r: any) {
 
 app.get("/health", (_req, res) => res.json({ ok: true, service: "via-do-terno-sac-api" }));
 
-// Autenticação compatível com a tabela users do CRM + acesso administrativo SAC
+// Autenticação baseada nos usuários cadastrados no SAC (Admin padrão: admin / via@123)
 app.post("/auth/login", async (req, res) => {
   const { login, email, password } = req.body || {};
-  const identifier = String(login || email || "").trim();
-  if (!identifier || !password) {
+  const identifier = String(login || email || "").trim().toLowerCase();
+  const rawPass = String(password || "");
+
+  if (!identifier || !rawPass) {
     return res.status(400).json({ error: "Informe seu usuário e senha." });
   }
 
-  const digits = identifier.replace(/\D/g, "");
+  await seedDatabaseIfEmpty(false);
 
-  try {
-    const result = await pool.query(
-      `SELECT id, name, username, email, password_hash, role, active
-       FROM users
-       WHERE LOWER(username) = LOWER($1)
-          OR LOWER(email) = LOWER($1)
-          OR ($2 <> '' AND (phone_digits = $2 OR cpf_digits = $2))
-          OR LOWER(name) = LOWER($1)
-       LIMIT 1`,
-      [identifier, digits]
-    );
-    const user = result.rows[0];
-    if (user && user.active) {
-      const ok = await bcrypt.compare(password, user.password_hash);
-      if (ok) {
-        const sacRole =
-          user.role === "admin"
-            ? "Administrador"
-            : user.role === "manager"
-            ? "Gestor"
-            : "Atendente SAC";
-        const token = jwt.sign(
-          { id: user.id, name: user.name, email: user.email, role: user.role, sacRole },
-          JWT_SECRET,
-          { expiresIn: "12h" }
-        );
-        return res.json({
-          token,
-          user: { id: user.id, name: user.name, email: user.email, role: user.role, sacRole },
-        });
-      }
-    }
-  } catch (err) {
-    console.warn("Aviso ao consultar tabela users:", err);
-  }
-
-  // Fallback para usuários cadastrados na configuração do SAC (ex: beatriz@viadoterno.com.br ou admin)
   const cfgRes = await pool.query("SELECT config FROM sac_settings WHERE id = 1").catch(() => ({ rows: [] as any[] }));
   const cfg = cfgRes.rows[0]?.config || defaultConfig();
-  const sacUser = (cfg.usuarios || []).find(
-    (u: any) =>
-      u.status === "Ativo" &&
-      (u.email?.toLowerCase() === identifier.toLowerCase() ||
-        u.nome?.toLowerCase() === identifier.toLowerCase() ||
-        identifier.toLowerCase() === "admin")
-  );
+  const usuarios: any[] = cfg.usuarios || defaultConfig().usuarios;
 
-  if (sacUser && (password === "123456" || password === "admin" || password === "ViaDoTerno2026!")) {
-    const roleMap: Record<string, string> = {
-      Administrador: "admin",
-      Gestor: "manager",
-      "Atendente SAC": "seller",
-      Visualização: "viewer",
-    };
+  const matchedUser = usuarios.find((u: any) => {
+    if (u.status && u.status !== "Ativo") return false;
+    const uLogin = String(u.login || "").trim().toLowerCase();
+    const uEmail = String(u.email || "").trim().toLowerCase();
+    const uNome = String(u.nome || "").trim().toLowerCase();
+    return identifier === uLogin || identifier === uEmail || identifier === uNome;
+  });
+
+  if (matchedUser) {
+    const expectedPass = matchedUser.senha || "via@123";
+    if (rawPass === expectedPass) {
+      const roleMap: Record<string, string> = {
+        Administrador: "admin",
+        Gestor: "manager",
+        "Atendente SAC": "seller",
+        Visualização: "viewer",
+      };
+      const userPayload = {
+        id: matchedUser.id,
+        name: matchedUser.nome,
+        email: matchedUser.email || matchedUser.login,
+        role: roleMap[matchedUser.perfil] || "admin",
+        sacRole: matchedUser.perfil || "Administrador",
+      };
+      const token = jwt.sign(userPayload, JWT_SECRET, { expiresIn: "12h" });
+      return res.json({ token, user: userPayload });
+    }
+  }
+
+  // Garantia de acesso para o admin padrão (admin / via@123)
+  if ((identifier === "admin" || identifier === "admin@viadoterno.com.br") && rawPass === "via@123") {
     const userPayload = {
-      id: sacUser.id,
-      name: sacUser.nome,
-      email: sacUser.email,
-      role: roleMap[sacUser.perfil] || "admin",
-      sacRole: sacUser.perfil,
+      id: "u_admin",
+      name: "Administrador",
+      email: "admin@viadoterno.com.br",
+      role: "admin",
+      sacRole: "Administrador",
     };
     const token = jwt.sign(userPayload, JWT_SECRET, { expiresIn: "12h" });
     return res.json({ token, user: userPayload });
@@ -199,7 +181,7 @@ app.get("/bootstrap", async (_req, res) => {
   res.json({ config, tickets, npsSurveys, auditLog });
 });
 
-// Atualizar configurações administrativas
+// Atualizar configurações administrativas (incluindo criação/edição de usuários com senha)
 app.put("/config", async (req, res) => {
   const { config, usuario, acao, detalhe } = req.body || {};
   if (!config) return res.status(400).json({ error: "Configuração inválida." });
@@ -313,7 +295,7 @@ app.post("/nps", async (req, res) => {
   res.json({ ok: true, survey });
 });
 
-// Reiniciar base de demonstração
+// Limpar base de dados (deixando apenas o usuário admin)
 app.post("/reset-demo", async (_req, res) => {
   await seedDatabaseIfEmpty(true);
   res.json({ ok: true });

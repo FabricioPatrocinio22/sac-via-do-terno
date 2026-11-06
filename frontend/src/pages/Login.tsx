@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { sacApi, setToken } from "../api";
 import { C, Button, inputStyle, LOGO_URL } from "../components/ui";
+import { defaultConfig } from "../defaults";
 
 export interface SacAuthUser {
   id: string;
@@ -29,48 +30,53 @@ export default function Login({ onLogin }: { onLogin: (user: SacAuthUser) => voi
       setToken(data.token);
       onLogin(data.user);
     } catch (err: any) {
-      // Fallback inteligente caso a API local ainda não esteja ativa
+      // Validação local caso esteja offline ou usando usuários salvos localmente
       const identifier = login.trim().toLowerCase();
-      if (
-        (identifier === "admin" ||
-          identifier.includes("@viadoterno.com.br") ||
-          identifier === "beatriz") &&
-        (password === "123456" || password === "admin" || password === "ViaDoTerno2026!")
-      ) {
+      let localUsers = defaultConfig().usuarios;
+      try {
+        const saved = localStorage.getItem("vt_sac_prod_v1");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed?.config?.usuarios)) {
+            localUsers = parsed.config.usuarios;
+          }
+        }
+      } catch {}
+
+      const matched = localUsers.find((u: any) => {
+        if (u.status && u.status !== "Ativo") return false;
+        return (
+          String(u.login || "").toLowerCase() === identifier ||
+          String(u.email || "").toLowerCase() === identifier ||
+          String(u.nome || "").toLowerCase() === identifier
+        );
+      });
+
+      if (matched && password === (matched.senha || "via@123")) {
         const localUser: SacAuthUser = {
-          id: "u1",
-          name: identifier.includes("marcelo")
-            ? "Marcelo Andrade"
-            : identifier.includes("isadora")
-            ? "Isadora Melo"
-            : "Beatriz Nogueira",
-          email: identifier.includes("@") ? identifier : "beatriz@viadoterno.com.br",
-          role: "admin",
-          sacRole: identifier.includes("marcelo")
-            ? "Gestor"
-            : identifier.includes("isadora")
-            ? "Atendente SAC"
-            : "Administrador",
+          id: matched.id,
+          name: matched.nome,
+          email: matched.email || matched.login,
+          role: matched.perfil === "Administrador" ? "admin" : matched.perfil === "Gestor" ? "manager" : "seller",
+          sacRole: matched.perfil || "Administrador",
         };
-        setToken("local_demo_token");
+        setToken("local_prod_token");
         onLogin(localUser);
+      } else if ((identifier === "admin" || identifier === "admin@viadoterno.com.br") && password === "via@123") {
+        setToken("local_prod_token");
+        onLogin({
+          id: "u_admin",
+          name: "Administrador",
+          email: "admin@viadoterno.com.br",
+          role: "admin",
+          sacRole: "Administrador",
+        });
       } else {
-        setError(err.message || "Não foi possível entrar. Verifique suas credenciais.");
+        setError(err.message || "Usuário ou senha inválidos.");
       }
     } finally {
       setLoading(false);
     }
-  }
-
-  function quickAccess(name: string, email: string, sacRole: string) {
-    setToken("local_demo_token");
-    onLogin({
-      id: "u_quick",
-      name,
-      email,
-      role: sacRole === "Administrador" ? "admin" : sacRole === "Gestor" ? "manager" : "seller",
-      sacRole,
-    });
   }
 
   return (
@@ -92,7 +98,7 @@ export default function Login({ onLogin }: { onLogin: (user: SacAuthUser) => voi
           borderRadius: 14,
           padding: "36px 32px",
           width: "100%",
-          maxWidth: 410,
+          maxWidth: 400,
           boxShadow: "0 20px 40px rgba(0,0,0,0.35)",
           borderTop: `4px solid ${C.wine}`,
         }}
@@ -135,14 +141,14 @@ export default function Login({ onLogin }: { onLogin: (user: SacAuthUser) => voi
 
         <div style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: C.inkSoft, marginBottom: 5 }}>
-            Usuário, Telefone, CPF ou E-mail
+            Usuário ou E-mail
           </div>
           <input
             style={inputStyle}
             type="text"
             value={login}
             onChange={(e) => setLogin(e.target.value)}
-            placeholder="Ex: admin, beatriz@viadoterno.com.br"
+            placeholder="Ex: admin"
             autoFocus
           />
         </div>
@@ -159,72 +165,8 @@ export default function Login({ onLogin }: { onLogin: (user: SacAuthUser) => voi
           />
         </div>
         <Button type="submit" variant="primary" disabled={loading} style={{ width: "100%" }}>
-          {loading ? "Entrando..." : "Entrar no SAC"}
+          {loading ? "Entrando..." : "Entrar"}
         </Button>
-
-        {/* Acesso rápido para demonstração / homologação */}
-        <div
-          style={{
-            marginTop: 22,
-            paddingTop: 16,
-            borderTop: `1px solid ${C.border}`,
-            textAlign: "center",
-          }}
-        >
-          <div style={{ fontSize: 11, color: C.inkSoft, fontWeight: 600, marginBottom: 8 }}>
-            ACESSO RÁPIDO (AMBIENTE DE HOMOLOGAÇÃO)
-          </div>
-          <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={() => quickAccess("Beatriz Nogueira", "beatriz@viadoterno.com.br", "Administrador")}
-              style={{
-                background: C.graySoft,
-                border: `1px solid ${C.border}`,
-                borderRadius: 6,
-                padding: "5px 10px",
-                fontSize: 11.5,
-                fontWeight: 600,
-                color: C.ink,
-                cursor: "pointer",
-              }}
-            >
-              👑 Admin
-            </button>
-            <button
-              type="button"
-              onClick={() => quickAccess("Marcelo Andrade", "marcelo@viadoterno.com.br", "Gestor")}
-              style={{
-                background: C.graySoft,
-                border: `1px solid ${C.border}`,
-                borderRadius: 6,
-                padding: "5px 10px",
-                fontSize: 11.5,
-                fontWeight: 600,
-                color: C.ink,
-                cursor: "pointer",
-              }}
-            >
-              📊 Gestor SAC
-            </button>
-            <button
-              type="button"
-              onClick={() => quickAccess("Isadora Melo", "isadora@viadoterno.com.br", "Atendente SAC")}
-              style={{
-                background: C.graySoft,
-                border: `1px solid ${C.border}`,
-                borderRadius: 6,
-                padding: "5px 10px",
-                fontSize: 11.5,
-                fontWeight: 600,
-                color: C.ink,
-                cursor: "pointer",
-              }}
-            >
-              🎧 Atendente
-            </button>
-          </div>
-        </div>
       </form>
     </div>
   );

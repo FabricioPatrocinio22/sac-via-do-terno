@@ -1,7 +1,6 @@
-import bcrypt from "bcryptjs";
 import { pool } from "./db";
 import { ensureSchema } from "./migrate";
-import { defaultConfig, seedDemoTickets, seedDemoSurveys } from "./defaults";
+import { defaultConfig } from "./defaults";
 
 export async function seedDatabaseIfEmpty(forceReset = false) {
   await ensureSchema();
@@ -14,30 +13,12 @@ export async function seedDatabaseIfEmpty(forceReset = false) {
   }
 
   const cfgRes = await pool.query("SELECT config FROM sac_settings WHERE id = 1");
-  let cfg = defaultConfig();
+  const cfg = defaultConfig();
   if (cfgRes.rowCount === 0) {
     await pool.query("INSERT INTO sac_settings (id, config) VALUES (1, $1)", [JSON.stringify(cfg)]);
-  } else {
-    cfg = { ...cfg, ...cfgRes.rows[0].config };
-  }
-
-  const countRes = await pool.query("SELECT COUNT(*)::int AS cnt FROM sac_tickets");
-  if (countRes.rows[0].cnt === 0) {
-    const tickets = seedDemoTickets(cfg);
-    for (const t of tickets) {
-      await insertTicketRow(t);
-    }
-    const surveys = seedDemoSurveys(tickets);
-    for (const s of surveys) {
-      await pool.query(
-        `INSERT INTO sac_nps_surveys (id, cliente, protocolo, canal, data_envio, status, nota, comentario, data_resposta)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (id) DO NOTHING`,
-        [s.id, s.cliente, s.protocolo, s.canal, s.dataEnvio, s.status, s.nota, s.comentario, s.dataResposta]
-      );
-    }
     await pool.query(
       `INSERT INTO sac_audit_logs (id, data, usuario, acao, detalhe)
-       VALUES ($1, now(), 'Sistema', 'Base inicial do SAC gerada', '46 atendimentos iniciais criados.')`,
+       VALUES ($1, now(), 'Sistema', 'Sistema inicializado', 'Base limpa pronta para uso em produção.')`,
       [`log_${Date.now()}`]
     );
   }
@@ -103,21 +84,13 @@ export async function insertTicketRow(t: any) {
 }
 
 if (require.main === module) {
-  (async () => {
-    await seedDatabaseIfEmpty(false);
-    const email = process.env.SEED_ADMIN_EMAIL || "admin@viadoterno.com.br";
-    const pass = process.env.SEED_ADMIN_PASSWORD || "ViaDoTerno2026!";
-    const hash = await bcrypt.hash(pass, 10);
-    await pool.query(
-      `INSERT INTO users (name, username, email, password_hash, role, active)
-       VALUES ('Administrador SAC', 'admin', $1, $2, 'admin', true)
-       ON CONFLICT (email) DO NOTHING`,
-      [email, hash]
-    );
-    console.log("Seed do SAC finalizado com sucesso!");
-    process.exit(0);
-  })().catch((err) => {
-    console.error("Erro no seed SAC:", err);
-    process.exit(1);
-  });
+  seedDatabaseIfEmpty(true)
+    .then(() => {
+      console.log("Banco SAC limpo e configurado apenas com o usuário admin (senha: via@123)!");
+      process.exit(0);
+    })
+    .catch((err) => {
+      console.error("Erro ao limpar/configurar banco SAC:", err);
+      process.exit(1);
+    });
 }
