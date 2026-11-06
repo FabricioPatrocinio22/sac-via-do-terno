@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #F4F5F8;
+  color: #18181B;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+table.dt {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+table.dt th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.45px;
+  color: #64748B;
+  font-weight: 700;
+  padding: 10px 12px;
+  border-bottom: 1px solid #E2E8F0;
+  background: #F8FAFC;
+  white-space: nowrap;
+}
+
+table.dt td {
+  padding: 11px 12px;
+  border-bottom: 1px solid #E2E8F0;
+  vertical-align: middle;
+  color: #18181B;
+}
+
+table.dt tbody tr {
+  transition: background 0.12s ease;
+}
+
+table.dt tbody tr:hover td {
+  background: #FEF2F2;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
