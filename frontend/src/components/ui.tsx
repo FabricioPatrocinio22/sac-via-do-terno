@@ -454,16 +454,19 @@ export function EmptyState({
   title,
   body,
   icon: Icon = FileText,
+  action,
 }: {
   title: string;
   body: string;
   icon?: any;
+  action?: React.ReactNode;
 }) {
   return (
     <div style={{ textAlign: "center", padding: "48px 20px", color: C.inkSoft }}>
       <Icon size={30} style={{ opacity: 0.45, margin: "0 auto 10px", display: "block", color: C.wine }} />
       <div style={{ fontWeight: 700, color: C.ink, marginBottom: 4, fontSize: 14 }}>{title}</div>
       <div style={{ fontSize: 13 }}>{body}</div>
+      {action && <div style={{ marginTop: 16 }}>{action}</div>}
     </div>
   );
 }

@@ -4,11 +4,10 @@ import Login, { SacAuthUser } from "./pages/Login";
 import DashboardView from "./pages/DashboardView";
 import KanbanSacView from "./pages/KanbanSacView";
 import {
-  AtendimentosView, NovoAtendimentoView, DetalheView, PendenciasView,
-  ReclamacoesView, TrocasView, ClientesView
+  AtendimentosView, NovoAtendimentoView, DetalheView
 } from "./pages/TicketsViews";
 import {
-  RelatoriosView, NpsView, AnaliseView, AdministracaoView, AuditoriaView
+  RelatoriosHubView, AdministracaoView
 } from "./pages/ManagementViews";
 import {
   C, LOGO_URL, LOGO_COMPACT_URL, Button, EmptyState, Toast
@@ -17,36 +16,21 @@ import { defaultConfig, PERMS, uid } from "./defaults";
 import { sacApi, setToken } from "./api";
 
 const NAV_ITEMS = [
-  { id: "dashboard", label: "Dashboard", icon: "📊" },
+  { id: "dashboard", label: "Painel Geral", icon: "📊" },
   { id: "atendimentos", label: "Atendimentos", icon: "📋" },
-  { id: "kanban", label: "Funil Kanban SAC", icon: "🗂️" },
-  { id: "novo", label: "Novo Atendimento", icon: "➕" },
-  { id: "pendencias", label: "Pendências & SLA", icon: "⏳" },
-  { id: "reclamacoes", label: "Reclamações", icon: "⚠️" },
-  { id: "trocas", label: "Trocas e Devoluções", icon: "🔄" },
-  { id: "clientes", label: "Clientes", icon: "👥" },
-  { id: "relatorios", label: "Relatórios", icon: "📈" },
-  { id: "nps", label: "NPS & Satisfação", icon: "⭐" },
-  { id: "analise", label: "Análise Gerencial", icon: "🏆" },
-  { id: "administracao", label: "Administração", icon: "⚙️", admin: true },
-  { id: "auditoria", label: "Auditoria", icon: "🛡️", admin: true },
+  { id: "kanban", label: "Quadro Kanban", icon: "🗂️" },
+  { id: "relatorios", label: "Relatórios & NPS", icon: "⭐" },
+  { id: "administracao", label: "Equipe & Cadastros", icon: "⚙️", admin: true },
 ];
 
 const VIEW_TITLES: Record<string, { title: string; subtitle: string }> = {
-  dashboard: { title: "Dashboard SAC & Pós-Venda", subtitle: "Visão executiva de protocolos, trocas, devoluções, SLA e satisfação" },
-  atendimentos: { title: "Protocolos de Atendimento", subtitle: "Gestão centralizada de chamados do SAC Via do Terno" },
-  kanban: { title: "Funil Kanban de Pós-Venda", subtitle: "Arraste os protocolos entre as etapas operacionais do SAC" },
-  detalhe: { title: "Ficha do Protocolo", subtitle: "Histórico completo, logística reversa, defeitos e resolução" },
-  novo: { title: "Abrir Novo Atendimento", subtitle: "Registro de protocolo com cálculo automático de SLA e verificação de pedido" },
-  pendencias: { title: "Central de Pendências & SLA", subtitle: "Monitoramento de prazos e atendimentos em aberto" },
-  reclamacoes: { title: "Central de Reclamações", subtitle: "Acompanhamento prioritário de reclamações e insatisfações" },
-  trocas: { title: "Trocas, Devoluções e Estornos", subtitle: "Controle financeiro de logística reversa, fretes e reembolsos" },
-  clientes: { title: "Base de Clientes Atendidos", subtitle: "Histórico consolidado de pós-venda por cliente" },
-  relatorios: { title: "Relatórios Executivos", subtitle: "Indicadores consolidados e exportação de dados" },
-  nps: { title: "NPS & Pesquisa de Satisfação", subtitle: "Métricas de lealdade, promotores, neutros e detratores" },
-  analise: { title: "Análise Gerencial Automática", subtitle: "Diagnóstico inteligente dos últimos 30 dias comparado ao período anterior" },
-  administracao: { title: "Administração do SAC", subtitle: "Parametrização de setores, vendedores, motivos, defeitos, usuários e SLAs" },
-  auditoria: { title: "Log de Auditoria", subtitle: "Rastreabilidade completa de ações realizadas no sistema" },
+  dashboard: { title: "Painel Geral", subtitle: "Resumo simples dos atendimentos, trocas e pendências do dia" },
+  atendimentos: { title: "Atendimentos", subtitle: "Consulte, filtre e acompanhe todos os chamados de clientes" },
+  kanban: { title: "Quadro Kanban", subtitle: "Arraste os cartões de uma coluna para outra conforme o andamento" },
+  detalhe: { title: "Ficha do Atendimento", subtitle: "Converse com o cliente, anote atualizações e mude de etapa com 1 clique" },
+  novo: { title: "Novo Atendimento", subtitle: "Cadastre rapidamente uma troca, devolução ou solicitação de cliente" },
+  relatorios: { title: "Relatórios & Satisfação (NPS)", subtitle: "Notas dos clientes, diagnóstico do mês e exportação para Excel" },
+  administracao: { title: "Equipe & Cadastros", subtitle: "Gerencie usuários, senhas, vendedores, setores e motivos" },
 };
 
 function Sidebar({
@@ -71,7 +55,7 @@ function Sidebar({
   return (
     <div
       style={{
-        width: collapsed ? 72 : 240,
+        width: collapsed ? 72 : 236,
         background: C.wineDark,
         height: "100vh",
         padding: collapsed ? "16px 8px" : "18px 14px",
@@ -85,7 +69,7 @@ function Sidebar({
         zIndex: 20,
       }}
     >
-      {/* Topo: Logo Oficial Via do Terno & Botão de Recolher/Expandir (idêntico ao CRM) */}
+      {/* Topo: Logo Oficial Via do Terno */}
       {collapsed ? (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", gap: 8, marginBottom: 16 }}>
           <div
@@ -118,15 +102,6 @@ function Sidebar({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              transition: "all 0.15s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = C.wine;
-              e.currentTarget.style.color = "#fff";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.08)";
-              e.currentTarget.style.color = "#CBD5E1";
             }}
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -135,7 +110,7 @@ function Sidebar({
           </button>
         </div>
       ) : (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <div
             style={{
               background: "#fff",
@@ -166,16 +141,7 @@ function Sidebar({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              transition: "all 0.15s ease",
               flexShrink: 0,
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = C.wine;
-              e.currentTarget.style.color = "#fff";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.08)";
-              e.currentTarget.style.color = "#CBD5E1";
             }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -185,27 +151,51 @@ function Sidebar({
         </div>
       )}
 
+      {/* Botão Principal de Ação Rápida: + Novo Atendimento */}
+      <button
+        onClick={() => setView("novo")}
+        title="Registrar Novo Atendimento"
+        style={{
+          width: "100%",
+          padding: collapsed ? "11px 0" : "11px 14px",
+          marginBottom: 18,
+          borderRadius: 10,
+          border: `1px solid ${view === "novo" ? "#fff" : "rgba(255,255,255,0.14)"}`,
+          background: C.wine,
+          color: "#fff",
+          fontWeight: 700,
+          fontSize: 13.5,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          boxShadow: "0 4px 12px rgba(200, 16, 46, 0.35)",
+          transition: "all 0.15s ease",
+        }}
+      >
+        <PlusCircle size={17} />
+        {!collapsed && <span>Novo Atendimento</span>}
+      </button>
+
       {!collapsed && (
         <div
           style={{
             fontSize: 10,
             fontWeight: 700,
-            color: C.gold,
+            color: "#71717A",
             textTransform: "uppercase",
-            letterSpacing: 1.1,
+            letterSpacing: 1,
             paddingLeft: 8,
             marginBottom: 8,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
           }}
         >
-          <span>Módulo SAC & Pós-Venda</span>
+          Menu Principal
         </div>
       )}
 
-      {/* Lista de Navegação */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1, overflowY: "auto", overflowX: "hidden" }}>
+      {/* Lista de Navegação Enxuta (apenas 4 itens + Equipe p/ Admin) */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 5, flex: 1, overflowY: "auto", overflowX: "hidden" }}>
         {NAV_ITEMS.filter((it) => !it.admin || role === "Administrador").map((it) => {
           const isActive = view === it.id || (it.id === "atendimentos" && view === "detalhe");
           return (
@@ -214,12 +204,12 @@ function Sidebar({
               onClick={() => setView(it.id)}
               title={collapsed ? it.label : undefined}
               style={{
-                padding: collapsed ? "10px 0" : "9px 12px",
-                borderRadius: 8,
-                fontSize: 13,
-                color: isActive ? "#fff" : "#A1A1AA",
-                background: isActive ? C.wine : "transparent",
-                boxShadow: isActive ? "0 2px 6px rgba(200, 16, 46, 0.35)" : "none",
+                padding: collapsed ? "11px 0" : "11px 12px",
+                borderRadius: 9,
+                fontSize: 13.5,
+                color: isActive ? "#fff" : "#CBD5E1",
+                background: isActive ? "rgba(255,255,255,0.12)" : "transparent",
+                borderLeft: !collapsed && isActive ? `3px solid ${C.gold}` : "3px solid transparent",
                 cursor: "pointer",
                 fontWeight: isActive ? 700 : 500,
                 display: "flex",
@@ -237,11 +227,11 @@ function Sidebar({
               onMouseLeave={(e) => {
                 if (!isActive) {
                   e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "#A1A1AA";
+                  e.currentTarget.style.color = "#CBD5E1";
                 }
               }}
             >
-              <span style={{ fontSize: collapsed ? 17 : 14, display: "flex", alignItems: "center" }}>
+              <span style={{ fontSize: collapsed ? 18 : 16, display: "flex", alignItems: "center" }}>
                 {it.icon}
               </span>
               {!collapsed && (
@@ -249,16 +239,17 @@ function Sidebar({
                   {it.label}
                 </span>
               )}
-              {!collapsed && it.id === "pendencias" && pendentesCount > 0 && (
+              {!collapsed && it.id === "atendimentos" && pendentesCount > 0 && (
                 <span
                   style={{
-                    background: isActive ? "#fff" : C.wine,
-                    color: isActive ? C.wine : "#fff",
-                    fontSize: 10.5,
+                    background: C.wine,
+                    color: "#fff",
+                    fontSize: 11,
                     fontWeight: 700,
-                    padding: "1px 6px",
+                    padding: "1px 7px",
                     borderRadius: 10,
                   }}
+                  title={`${pendentesCount} atendimento(s) em aberto`}
                 >
                   {pendentesCount}
                 </span>
@@ -297,10 +288,7 @@ function Sidebar({
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
-                transition: "opacity 0.15s ease",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.8")}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
             >
               <span>🚪</span> Sair da conta
             </div>
@@ -334,9 +322,6 @@ function Sidebar({
                 fontSize: 16,
                 cursor: "pointer",
                 padding: 4,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
               }}
             >
               🚪
@@ -387,9 +372,7 @@ export default function App() {
 
   const perms = PERMS[role] || PERMS["Administrador"];
 
-  // Carrega dados do Backend PostgreSQL ou Fallback LocalStorage
   const loadData = useCallback(async () => {
-    // Remove cache antigo de demonstração se existir
     localStorage.removeItem("vt_sac_v1");
 
     try {
@@ -405,7 +388,6 @@ export default function App() {
       setBackendConnected(false);
     }
 
-    // Fallback LocalStorage (Produção limpa)
     try {
       const saved = localStorage.getItem("vt_sac_prod_v1");
       if (saved) {
@@ -459,7 +441,6 @@ export default function App() {
     return () => window.removeEventListener("sac_auth_expired", handleAuthExpired);
   }, []);
 
-  // Persistência automática em LocalStorage como espelho de segurança
   useEffect(() => {
     if (!ready) return;
     try {
@@ -495,7 +476,7 @@ export default function App() {
       id: uid("t"),
       protocolo: nextProtocol,
       dataAbertura: now,
-      timeline: [{ data: now, usuario: currentUser, acao: "Atendimento criado", comentario: `Canal: ${data.canal || "—"}` }],
+      timeline: [{ data: now, usuario: currentUser, acao: "Atendimento aberto", comentario: `Canal: ${data.canal || "—"}` }],
       status: "Novo",
       nps: null,
       clienteSatisfeito: null,
@@ -504,7 +485,7 @@ export default function App() {
     };
     setTickets((prev) => [ticket, ...prev]);
     addAudit("Atendimento criado", `${ticket.protocolo} — ${ticket.cliente}`);
-    showToast(`Protocolo ${ticket.protocolo} gerado com sucesso!`);
+    showToast(`Atendimento ${ticket.protocolo} criado com sucesso!`);
     if (backendConnected) {
       sacApi.createTicket(ticket, currentUser, "Atendimento criado", `${ticket.protocolo} — ${ticket.cliente}`).catch(() => {});
     }
@@ -539,7 +520,7 @@ export default function App() {
         return updated;
       })
     );
-    showToast(actionLabel || "Protocolo atualizado!");
+    showToast(actionLabel || "Atendimento atualizado!");
   };
 
   const deleteTicket = (id: string) => {
@@ -551,7 +532,7 @@ export default function App() {
     if (backendConnected) {
       sacApi.deleteTicket(id, currentUser).catch(() => {});
     }
-    showToast("Protocolo excluído.");
+    showToast("Atendimento excluído.");
     setView("atendimentos");
   };
 
@@ -559,7 +540,7 @@ export default function App() {
     setConfig((prev: any) => {
       const next = updater(prev);
       if (backendConnected) {
-        sacApi.saveConfig(next, currentUser, "Configuração atualizada", "Administração SAC").catch(() => {});
+        sacApi.saveConfig(next, currentUser, "Configuração atualizada", "Equipe & Cadastros").catch(() => {});
       }
       return next;
     });
@@ -584,7 +565,7 @@ export default function App() {
     if (backendConnected) {
       sacApi.saveNps(survey, currentUser).catch(() => {});
     }
-    showToast(`Pesquisa enviada para ${survey.cliente}`);
+    showToast(`Pesquisa registrada para ${survey.cliente}`);
   };
 
   const respondNpsSurvey = (id: string, nota: number, comentario: string) => {
@@ -599,8 +580,8 @@ export default function App() {
       })
     );
     const s = npsSurveys.find((x) => x.id === id);
-    addAudit("Resposta de pesquisa NPS registrada", `${s ? s.cliente : ""} — nota ${nota}`);
-    showToast("Resposta NPS registrada!");
+    addAudit("Nota NPS registrada", `${s ? s.cliente : ""} — nota ${nota}`);
+    showToast("Nota do cliente salva!");
   };
 
   function handleLogin(u: SacAuthUser) {
@@ -645,7 +626,7 @@ export default function App() {
         fontFamily: "'Inter',system-ui,sans-serif",
       }}
     >
-      {/* Barra Lateral Preta Ônix Retrátil (Idêntica ao CRM Via do Terno) */}
+      {/* Menu Lateral Limpo (apenas 4 itens + Equipe p/ Admin) */}
       <Sidebar
         view={view}
         setView={setView}
@@ -657,7 +638,7 @@ export default function App() {
         pendentesCount={pendentesCount}
       />
 
-      {/* Área Principal com Scroll Independente */}
+      {/* Área Principal */}
       <div
         style={{
           flex: 1,
@@ -669,7 +650,7 @@ export default function App() {
           boxSizing: "border-box",
         }}
       >
-        {/* Topbar Executiva */}
+        {/* Barra Superior Limpa e Direta */}
         <div
           style={{
             background: "#fff",
@@ -686,55 +667,68 @@ export default function App() {
           }}
         >
           <div>
-            <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: 21, margin: 0, color: C.ink, fontWeight: 600 }}>
+            <h1 style={{ fontSize: 20, margin: 0, color: C.ink, fontWeight: 700 }}>
               {headerMeta.title}
             </h1>
             {headerMeta.subtitle && (
-              <div style={{ fontSize: 12, color: C.inkSoft, marginTop: 2 }}>{headerMeta.subtitle}</div>
+              <div style={{ fontSize: 12.5, color: C.inkSoft, marginTop: 2 }}>{headerMeta.subtitle}</div>
             )}
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                padding: "4px 10px",
-                borderRadius: 20,
-                background: backendConnected ? C.successSoft : C.goldSoft,
-                color: backendConnected ? C.success : "#92400E",
-                border: `1px solid ${backendConnected ? "#BBF7D0" : "#FDE68A"}`,
-              }}
-            >
-              {backendConnected ? "● Conectado ao Banco" : "● Modo Local Sincronizado"}
-            </span>
+            {!backendConnected && (
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: "4px 10px",
+                  borderRadius: 20,
+                  background: C.goldSoft,
+                  color: "#92400E",
+                  border: "1px solid #FDE68A",
+                }}
+              >
+                ● Sem conexão com servidor (salvando local)
+              </span>
+            )}
 
             <span
               style={{
-                fontSize: 12,
+                fontSize: 12.5,
                 fontWeight: 600,
-                padding: "5px 12px",
+                padding: "6px 12px",
                 borderRadius: 8,
                 background: C.bg,
                 color: C.ink,
                 border: `1px solid ${C.border}`,
               }}
-              title="Usuário autenticado"
             >
-              👤 {currentUser} <span style={{ color: C.inkSoft, fontWeight: 500 }}>({role})</span>
+              👤 {currentUser}
             </span>
 
             {view !== "novo" && (
               <Button size="sm" variant="primary" icon={PlusCircle} onClick={() => setView("novo")}>
-                Novo Protocolo
+                Novo Atendimento
               </Button>
             )}
           </div>
         </div>
 
-        {/* Conteúdo da Visão Selecionada */}
+        {/* Conteúdo Principal */}
         <div style={{ padding: "24px 32px 48px", flex: 1 }}>
-          {view === "dashboard" && <DashboardView tickets={tickets} config={config} />}
+          {view === "dashboard" && (
+            <DashboardView
+              tickets={tickets}
+              config={config}
+              onNew={() => setView("novo")}
+              onGoAtendimentos={() => setView("atendimentos")}
+              onOpenTicket={(id) => {
+                setSelectedTicketId(id);
+                setView("detalhe");
+              }}
+            />
+          )}
+
           {view === "atendimentos" && (
             <AtendimentosView
               tickets={tickets}
@@ -747,6 +741,7 @@ export default function App() {
               perms={perms}
             />
           )}
+
           {view === "kanban" && (
             <KanbanSacView
               tickets={tickets}
@@ -755,9 +750,11 @@ export default function App() {
                 setSelectedTicketId(id);
                 setView("detalhe");
               }}
-              onChangeStatus={(id, newStatus) => updateTicket(id, { status: newStatus }, `Movido no Kanban para ${newStatus}`)}
+              onNew={() => setView("novo")}
+              onChangeStatus={(id, newStatus) => updateTicket(id, { status: newStatus }, `Movido para ${newStatus}`)}
             />
           )}
+
           {view === "detalhe" && selectedTicket && (
             <DetalheView
               ticket={selectedTicket}
@@ -768,11 +765,13 @@ export default function App() {
               onDelete={deleteTicket}
             />
           )}
+
           {view === "novo" && (
             <NovoAtendimentoView
               config={config}
               nextProtocol={nextProtocol}
               findDuplicate={findDuplicate}
+              onCancel={() => setView(tickets.length > 0 ? "atendimentos" : "dashboard")}
               onCreate={async (data) => {
                 const t = await createTicket(data);
                 setSelectedTicketId(t.id);
@@ -780,40 +779,9 @@ export default function App() {
               }}
             />
           )}
-          {view === "pendencias" && (
-            <PendenciasView
-              tickets={tickets}
-              config={config}
-              onOpen={(id) => {
-                setSelectedTicketId(id);
-                setView("detalhe");
-              }}
-            />
-          )}
-          {view === "reclamacoes" && (
-            <ReclamacoesView
-              tickets={tickets}
-              config={config}
-              onOpen={(id) => {
-                setSelectedTicketId(id);
-                setView("detalhe");
-              }}
-            />
-          )}
-          {view === "trocas" && (
-            <TrocasView
-              tickets={tickets}
-              config={config}
-              onOpen={(id) => {
-                setSelectedTicketId(id);
-                setView("detalhe");
-              }}
-            />
-          )}
-          {view === "clientes" && <ClientesView tickets={tickets} />}
-          {view === "relatorios" && <RelatoriosView tickets={tickets} config={config} />}
-          {view === "nps" && (
-            <NpsView
+
+          {view === "relatorios" && (
+            <RelatoriosHubView
               tickets={tickets}
               config={config}
               surveys={npsSurveys}
@@ -821,28 +789,22 @@ export default function App() {
               onRespondSurvey={respondNpsSurvey}
             />
           )}
-          {view === "analise" && <AnaliseView tickets={tickets} config={config} />}
+
           {view === "administracao" && perms.administrar && (
             <AdministracaoView
               config={config}
               setConfig={handleUpdateConfig}
               addAudit={addAudit}
               showToast={showToast}
+              auditLog={auditLog}
             />
           )}
+
           {view === "administracao" && !perms.administrar && (
             <EmptyState
               icon={ShieldCheck}
               title="Acesso Restrito ao Administrador"
-              body="Seu perfil atual não tem permissão para alterar configurações estruturais do sistema."
-            />
-          )}
-          {view === "auditoria" && perms.administrar && <AuditoriaView log={auditLog} />}
-          {view === "auditoria" && !perms.administrar && (
-            <EmptyState
-              icon={ShieldCheck}
-              title="Acesso Restrito ao Administrador"
-              body="Seu perfil atual não tem permissão para visualizar o log de auditoria."
+              body="Apenas administradores podem gerenciar usuários e cadastros do sistema."
             />
           )}
         </div>
