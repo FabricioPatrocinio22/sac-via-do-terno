@@ -11,9 +11,9 @@ import {
   RelatoriosView, NpsView, AnaliseView, AdministracaoView, AuditoriaView
 } from "./pages/ManagementViews";
 import {
-  C, LOGO_URL, LOGO_COMPACT_URL, Button, TSelect, EmptyState, Toast
+  C, LOGO_URL, LOGO_COMPACT_URL, Button, EmptyState, Toast
 } from "./components/ui";
-import { defaultConfig, seedDemoTickets, seedDemoSurveys, PERMS, uid } from "./defaults";
+import { defaultConfig, PERMS, uid } from "./defaults";
 import { sacApi, setToken } from "./api";
 
 const NAV_ITEMS = [
@@ -206,7 +206,7 @@ function Sidebar({
 
       {/* Lista de Navegação */}
       <div style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1, overflowY: "auto", overflowX: "hidden" }}>
-        {NAV_ITEMS.map((it) => {
+        {NAV_ITEMS.filter((it) => !it.admin || role === "Administrador").map((it) => {
           const isActive = view === it.id || (it.id === "atendimentos" && view === "detalhe");
           return (
             <div
@@ -444,8 +444,20 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (user) {
+      loadData();
+    }
+  }, [user, loadData]);
+
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      setToken(null);
+      localStorage.removeItem("vt_sac_user");
+      setUser(null);
+    };
+    window.addEventListener("sac_auth_expired", handleAuthExpired);
+    return () => window.removeEventListener("sac_auth_expired", handleAuthExpired);
+  }, []);
 
   // Persistência automática em LocalStorage como espelho de segurança
   useEffect(() => {
@@ -591,30 +603,6 @@ export default function App() {
     showToast("Resposta NPS registrada!");
   };
 
-  const resetDemo = async () => {
-    if (backendConnected) {
-      await sacApi.resetDemo().catch(() => {});
-      await loadData();
-      showToast("Base de demonstração reiniciada no servidor!");
-      return;
-    }
-    const cfg = defaultConfig();
-    const seeded = seedDemoTickets(cfg);
-    setConfig(cfg);
-    setTickets(seeded);
-    setAuditLog([
-      {
-        id: uid("log"),
-        data: new Date().toISOString(),
-        usuario: "Sistema",
-        acao: "Base reiniciada",
-        detalhe: "Dados de demonstração regenerados.",
-      },
-    ]);
-    setNpsSurveys(seedDemoSurveys(seeded));
-    showToast("Base de demonstração reiniciada");
-  };
-
   function handleLogin(u: SacAuthUser) {
     localStorage.setItem("vt_sac_user", JSON.stringify(u));
     setUser(u);
@@ -721,27 +709,20 @@ export default function App() {
               {backendConnected ? "● Conectado ao Banco" : "● Modo Local Sincronizado"}
             </span>
 
-            <TSelect
-              value={currentUser}
-              onChange={(e) => setCurrentUser(e.target.value)}
-              style={{ width: 175, padding: "6px 10px", fontSize: 12.5 }}
-              title="Operador ativo"
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                padding: "5px 12px",
+                borderRadius: 8,
+                background: C.surfaceAlt,
+                color: C.ink,
+                border: `1px solid ${C.border}`,
+              }}
+              title="Usuário autenticado"
             >
-              {config.usuarios.map((u: any) => (
-                <option key={u.id} value={u.nome}>{u.nome}</option>
-              ))}
-            </TSelect>
-
-            <TSelect
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              style={{ width: 150, padding: "6px 10px", fontSize: 12.5 }}
-              title="Simular Perfil de Acesso"
-            >
-              {Object.keys(PERMS).map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </TSelect>
+              👤 {currentUser} <span style={{ color: C.inkMuted, fontWeight: 500 }}>({role})</span>
+            </span>
 
             {view !== "novo" && (
               <Button size="sm" variant="primary" icon={PlusCircle} onClick={() => setView("novo")}>
@@ -847,14 +828,13 @@ export default function App() {
               setConfig={handleUpdateConfig}
               addAudit={addAudit}
               showToast={showToast}
-              resetDemo={resetDemo}
             />
           )}
           {view === "administracao" && !perms.administrar && (
             <EmptyState
               icon={ShieldCheck}
               title="Acesso Restrito ao Administrador"
-              body="Seu perfil atual não tem permissão para alterar configurações estruturais. Troque o perfil no topo para 'Administrador' para testar."
+              body="Seu perfil atual não tem permissão para alterar configurações estruturais do sistema."
             />
           )}
           {view === "auditoria" && perms.administrar && <AuditoriaView log={auditLog} />}

@@ -11,11 +11,15 @@ export function setToken(t: string | null) {
 async function req(path: string, options: RequestInit = {}) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(options.headers as Record<string, string> || {}),
+    ...((options.headers as Record<string, string>) || {}),
   };
-  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+  const currentToken = authToken || localStorage.getItem("vt_sac_token");
+  if (currentToken) headers["Authorization"] = `Bearer ${currentToken}`;
   const res = await fetch(`${API_URL}${path}`, { ...options, headers });
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && path !== "/auth/login") {
+    window.dispatchEvent(new Event("sac_auth_expired"));
+  }
   if (!res.ok) throw new Error(data.error || `Erro HTTP ${res.status}`);
   return data;
 }
@@ -35,5 +39,4 @@ export const sacApi = {
     req(`/tickets/${id}`, { method: "DELETE", body: JSON.stringify({ usuario }) }),
   saveNps: (survey: any, usuario: string) =>
     req("/nps", { method: "POST", body: JSON.stringify({ survey, usuario }) }),
-  resetDemo: () => req("/reset-demo", { method: "POST" }),
 };

@@ -106,3 +106,9 @@ CREATE TABLE IF NOT EXISTS sac_audit_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_sac_audit_data ON sac_audit_logs(data DESC);
+
+-- Políticas de Segurança (RLS) no PostgreSQL / Supabase:
+ALTER TABLE sac_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sac_tickets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sac_nps_surveys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sac_audit_logs ENABLE ROW LEVEL SECURITY;

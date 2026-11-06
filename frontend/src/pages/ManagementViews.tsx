@@ -650,30 +650,28 @@ export function AdministracaoView({
   setConfig,
   addAudit,
   showToast,
-  resetDemo,
 }: {
   config: any;
   setConfig: (fn: (c: any) => any) => void;
   addAudit: (acao: string, detalhe: string) => void;
   showToast: (msg: string) => void;
-  resetDemo: () => void;
 }) {
-  const [tab, setTab] = useState("setores");
+  const [tab, setTab] = useState("usuarios");
   const tabs = [
+    { key: "usuarios", label: "Usuários SAC" },
     { key: "setores", label: "Setores" },
     { key: "vendedores", label: "Vendedores" },
     { key: "tipos", label: "Tipos de Atendimento" },
     { key: "categorias", label: "Categorias de Motivo" },
     { key: "defeitos", label: "Tipos de Defeito" },
     { key: "status", label: "Status" },
-    { key: "usuarios", label: "Usuários SAC" },
     { key: "campos", label: "Campos Personalizados" },
     { key: "regras", label: "Regras e SLA" },
   ];
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {tabs.map((t) => (
             <button
@@ -695,18 +693,6 @@ export function AdministracaoView({
             </button>
           ))}
         </div>
-        <Button
-          size="sm"
-          variant="danger"
-          icon={RefreshCcw}
-          onClick={() => {
-            if (window.confirm("Tem certeza que deseja zerar todos os atendimentos e pesquisas registrados?")) {
-              resetDemo();
-            }
-          }}
-        >
-          Zerar Base de Atendimentos
-        </Button>
       </div>
 
       {tab === "setores" && (
@@ -1051,18 +1037,25 @@ function UsuariosAdmin({
     setModalOpen(false);
   };
 
+  const isMaster = (u: any) => u.id === "u_admin" || String(u.login || "").toLowerCase() === "admin";
+
   const toggleStatus = (id: string) => {
-    onChange(usuarios.map((u) => (u.id === id ? { ...u, status: u.status === "Ativo" ? "Inativo" : "Ativo" } : u)));
     const u = usuarios.find((x) => x.id === id);
+    if (u && isMaster(u)) {
+      showToast("A conta principal de Administrador não pode ser inativada.");
+      return;
+    }
+    onChange(usuarios.map((x) => (x.id === id ? { ...x, status: x.status === "Ativo" ? "Inativo" : "Ativo" } : x)));
     addAudit("Status de usuário alterado", `${u?.nome}`);
   };
 
   const remove = (id: string) => {
-    if (usuarios.length <= 1) {
-      showToast("Não é possível remover o único usuário administrador.");
+    const u = usuarios.find((x) => x.id === id);
+    if (u && isMaster(u)) {
+      showToast("A conta principal de Administrador não pode ser excluída.");
       return;
     }
-    const u = usuarios.find((x) => x.id === id);
+    if (!window.confirm(`Deseja realmente remover o usuário "${u?.nome}"?`)) return;
     onChange(usuarios.filter((x) => x.id !== id));
     addAudit("Usuário removido", u?.nome);
     showToast("Usuário removido.");
@@ -1074,7 +1067,7 @@ function UsuariosAdmin({
       subtitle="Cadastre ou edite o login e a senha dos operadores do SAC"
       right={
         <Button size="sm" variant="primary" icon={Plus} onClick={openNew}>
-          + Novo Usuário
+          Novo Usuário
         </Button>
       }
     >
@@ -1091,41 +1084,66 @@ function UsuariosAdmin({
           </tr>
         </thead>
         <tbody>
-          {usuarios.map((u) => (
-            <tr key={u.id}>
-              <td style={{ fontWeight: 700 }}>{u.nome}</td>
-              <td style={{ fontFamily: FONT_MONO, fontSize: 12, fontWeight: 600, color: C.wine }}>
-                {u.login || u.email?.split("@")[0] || "—"}
-              </td>
-              <td>{u.email}</td>
-              <td>{u.perfil}</td>
-              <td>{u.setor}</td>
-              <td><Badge tone={u.status === "Ativo" ? "success" : "danger"}>{u.status}</Badge></td>
-              <td style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                <button
-                  onClick={() => openEdit(u)}
-                  title="Editar usuário / senha"
-                  style={{ background: "none", border: "none", cursor: "pointer", color: C.inkSoft }}
-                >
-                  <Edit3 size={14} />
-                </button>
-                <button
-                  onClick={() => toggleStatus(u.id)}
-                  title={u.status === "Ativo" ? "Inativar usuário" : "Ativar usuário"}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: C.inkSoft }}
-                >
-                  {u.status === "Ativo" ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-                <button
-                  onClick={() => remove(u.id)}
-                  title="Excluir usuário"
-                  style={{ background: "none", border: "none", cursor: "pointer", color: C.danger }}
-                >
-                  <Trash2 size={14} />
-                </button>
-              </td>
-            </tr>
-          ))}
+          {usuarios.map((u) => {
+            const master = isMaster(u);
+            return (
+              <tr key={u.id}>
+                <td style={{ fontWeight: 700 }}>
+                  {u.nome}{" "}
+                  {master && (
+                    <span
+                      style={{
+                        fontSize: 10.5,
+                        background: C.goldSoft,
+                        color: "#92400E",
+                        border: `1px solid ${C.gold}66`,
+                        padding: "1px 6px",
+                        borderRadius: 10,
+                        marginLeft: 6,
+                        fontWeight: 700,
+                      }}
+                    >
+                      🔒 Conta Principal
+                    </span>
+                  )}
+                </td>
+                <td style={{ fontFamily: FONT_MONO, fontSize: 12, fontWeight: 600, color: C.wine }}>
+                  {u.login || u.email?.split("@")[0] || "—"}
+                </td>
+                <td>{u.email}</td>
+                <td>{u.perfil}</td>
+                <td>{u.setor}</td>
+                <td><Badge tone={u.status === "Ativo" ? "success" : "danger"}>{u.status}</Badge></td>
+                <td style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                  <button
+                    onClick={() => openEdit(u)}
+                    title="Editar usuário / senha"
+                    style={{ background: "none", border: "none", cursor: "pointer", color: C.inkSoft }}
+                  >
+                    <Edit3 size={14} />
+                  </button>
+                  {!master && (
+                    <>
+                      <button
+                        onClick={() => toggleStatus(u.id)}
+                        title={u.status === "Ativo" ? "Inativar usuário" : "Ativar usuário"}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: C.inkSoft }}
+                      >
+                        {u.status === "Ativo" ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                      <button
+                        onClick={() => remove(u.id)}
+                        title="Excluir usuário"
+                        style={{ background: "none", border: "none", cursor: "pointer", color: C.danger }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       <Modal

@@ -21,6 +21,30 @@ app.use(express.json({ limit: "10mb" }));
 
 const JWT_SECRET = process.env.JWT_SECRET || "jwt_secret_viadoterno_sac_2026_prod";
 
+// Middleware de Autenticação Obrigatória
+function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Acesso negado. Faça login novamente." });
+  }
+  try {
+    const payload = jwt.verify(header.slice(7), JWT_SECRET) as any;
+    (req as any).user = payload;
+    next();
+  } catch {
+    return res.status(401).json({ error: "Sessão expirada. Faça login novamente." });
+  }
+}
+
+// Middleware de Permissão Estrita de Administrador
+function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const user = (req as any).user;
+  if (!user || (user.sacRole !== "Administrador" && user.role !== "admin")) {
+    return res.status(403).json({ error: "Permissão negada.Apenas Administradores podem executar esta ação." });
+  }
+  next();
+}
+
 function mapRowToTicket(r: any) {
   return {
     id: r.id,
@@ -82,7 +106,7 @@ app.post("/auth/login", async (req, res) => {
     return res.status(400).json({ error: "Informe seu usuário e senha." });
   }
 
-  await seedDatabaseIfEmpty(false);
+  await seedDatabaseIfEmpty();
 
   const cfgRes = await pool.query("SELECT config FROM sac_settings WHERE id = 1").catch(() => ({ rows: [] as any[] }));
   const cfg = cfgRes.rows[0]?.config || defaultConfig();
@@ -117,8 +141,13 @@ app.post("/auth/login", async (req, res) => {
     }
   }
 
-  // Garantia de acesso para o admin padrão (admin / via@123)
-  if ((identifier === "admin" || identifier === "admin@viadoterno.com.br") && rawPass === "via@123") {
+  // Garantia de acesso para o admin principal (admin / via@123) caso não tenha alterado a senha
+  const adminUser = usuarios.find((u: any) => u.id === "u_admin" || u.login === "admin");
+  if (
+    !adminUser &&
+    (identifier === "admin" || identifier === "admin@viadoterno.com.br") &&
+    rawPass === "via@123"
+  ) {
     const userPayload = {
       id: "u_admin",
       name: "Administrador",
@@ -133,22 +162,13 @@ app.post("/auth/login", async (req, res) => {
   return res.status(401).json({ error: "Usuário ou senha inválidos." });
 });
 
-app.get("/auth/me", (req, res) => {
-  const header = req.headers.authorization;
-  if (!header || !header.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Não autenticado." });
-  }
-  try {
-    const payload = jwt.verify(header.slice(7), JWT_SECRET);
-    res.json({ user: payload });
-  } catch {
-    res.status(401).json({ error: "Sessão expirada." });
-  }
+app.get("/auth/me", requireAuth, (req, res) => {
+  res.json({ user: (req as any).user });
 });
 
-// Carrega todos os dados iniciais do SAC de uma só vez
-app.get("/bootstrap", async (_req, res) => {
-  await seedDatabaseIfEmpty(false);
+// Carrega todos os dados iniciais do SAC (Exige usuário autenticado)
+app.get("/bootstrap", requireAuth, async (req, res) => {
+  await seedDatabaseIfEmpty();
 
   const [cfgRes, ticketsRes, npsRes, auditRes] = await Promise.all([
     pool.query("SELECT config FROM sac_settings WHERE id = 1"),
@@ -157,7 +177,15 @@ app.get("/bootstrap", async (_req, res) => {
     pool.query("SELECT * FROM sac_audit_logs ORDER BY data DESC LIMIT 400"),
   ]);
 
-  const config = { ...defaultConfig(), ...(cfgRes.rows[0]?.config || {}) };
+  const rawConfig = { ...defaultConfig(), ...(cfgRes.rows[0]?.config || {}) };
+  const isUserAdmin = (req as any).user?.sacRole === "Administrador" || (req as any).user?.role === "admin";
+
+  // Oculta as senhas dos usuários caso quem esteja consultando não seja Administrador
+  const safeConfig = {
+    ...rawConfig,
+    usuarios: (rawConfig.usuarios || []).map((u: any) => (isUserAdmin ? u : { ...u, senha: "" })),
+  };
+
   const tickets = ticketsRes.rows.map(mapRowToTicket);
   const npsSurveys = npsRes.rows.map((s) => ({
     id: s.id,
@@ -178,13 +206,30 @@ app.get("/bootstrap", async (_req, res) => {
     detalhe: a.detalhe || "",
   }));
 
-  res.json({ config, tickets, npsSurveys, auditLog });
+  res.json({ config: safeConfig, tickets, npsSurveys, auditLog });
 });
 
-// Atualizar configurações administrativas (incluindo criação/edição de usuários com senha)
-app.put("/config", async (req, res) => {
-  const { config, usuario, acao, detalhe } = req.body || {};
+// Atualizar configurações administrativas (Restrito a Administradores)
+app.put("/config", requireAuth, requireAdmin, async (req, res) => {
+  const { config, acao, detalhe } = req.body || {};
+  const authUser = (req as any).user;
   if (!config) return res.status(400).json({ error: "Configuração inválida." });
+
+  // Política de segurança: Garante que a conta mestre 'admin' nunca possa ser excluída ou desativada
+  const incomingUsers: any[] = Array.isArray(config.usuarios) ? config.usuarios : [];
+  const hasMasterAdmin = incomingUsers.some((u) => u.id === "u_admin" || String(u.login).toLowerCase() === "admin");
+  if (!hasMasterAdmin) {
+    const defaultMaster = defaultConfig().usuarios[0];
+    incomingUsers.unshift(defaultMaster);
+  } else {
+    incomingUsers.forEach((u) => {
+      if (u.id === "u_admin" || String(u.login).toLowerCase() === "admin") {
+        u.status = "Ativo";
+        u.perfil = "Administrador";
+      }
+    });
+  }
+  config.usuarios = incomingUsers;
 
   await pool.query(
     `INSERT INTO sac_settings (id, config, updated_at)
@@ -196,16 +241,17 @@ app.put("/config", async (req, res) => {
   if (acao) {
     await pool.query(
       `INSERT INTO sac_audit_logs (id, data, usuario, acao, detalhe) VALUES ($1, now(), $2, $3, $4)`,
-      [`log_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, usuario || "Sistema", acao, detalhe || ""]
+      [`log_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, authUser.name || "Administrador", acao, detalhe || ""]
     );
   }
 
   res.json({ ok: true, config });
 });
 
-// Criar ou atualizar atendimento
-app.post("/tickets", async (req, res) => {
-  const { ticket, usuario, acao, detalhe } = req.body || {};
+// Criar atendimento (Exige autenticação)
+app.post("/tickets", requireAuth, async (req, res) => {
+  const { ticket, acao, detalhe } = req.body || {};
+  const authUser = (req as any).user;
   if (!ticket || !ticket.id || !ticket.protocolo) {
     return res.status(400).json({ error: "Dados do atendimento incompletos." });
   }
@@ -215,15 +261,17 @@ app.post("/tickets", async (req, res) => {
   if (acao) {
     await pool.query(
       `INSERT INTO sac_audit_logs (id, data, usuario, acao, detalhe) VALUES ($1, now(), $2, $3, $4)`,
-      [`log_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, usuario || "Sistema", acao, detalhe || ""]
+      [`log_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, authUser.name || "Operador", acao, detalhe || ""]
     );
   }
 
   res.status(201).json({ ok: true, ticket });
 });
 
-app.put("/tickets/:id", async (req, res) => {
-  const { ticket, usuario, acao, detalhe } = req.body || {};
+// Atualizar atendimento (Exige autenticação)
+app.put("/tickets/:id", requireAuth, async (req, res) => {
+  const { ticket, acao, detalhe } = req.body || {};
+  const authUser = (req as any).user;
   if (!ticket) return res.status(400).json({ error: "Atendimento inválido." });
 
   await insertTicketRow({ ...ticket, id: req.params.id });
@@ -231,15 +279,16 @@ app.put("/tickets/:id", async (req, res) => {
   if (acao) {
     await pool.query(
       `INSERT INTO sac_audit_logs (id, data, usuario, acao, detalhe) VALUES ($1, now(), $2, $3, $4)`,
-      [`log_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, usuario || "Sistema", acao, detalhe || ""]
+      [`log_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, authUser.name || "Operador", acao, detalhe || ""]
     );
   }
 
   res.json({ ok: true, ticket });
 });
 
-app.delete("/tickets/:id", async (req, res) => {
-  const { usuario } = req.body || {};
+// Excluir atendimento individual (Restrito apenas ao Administrador)
+app.delete("/tickets/:id", requireAuth, requireAdmin, async (req, res) => {
+  const authUser = (req as any).user;
   const existing = await pool.query("SELECT protocolo, cliente FROM sac_tickets WHERE id = $1", [req.params.id]);
   await pool.query("DELETE FROM sac_tickets WHERE id = $1", [req.params.id]);
   if (existing.rows[0]) {
@@ -247,7 +296,7 @@ app.delete("/tickets/:id", async (req, res) => {
       `INSERT INTO sac_audit_logs (id, data, usuario, acao, detalhe) VALUES ($1, now(), $2, $3, $4)`,
       [
         `log_${Date.now()}`,
-        usuario || "Administrador",
+        authUser.name || "Administrador",
         "Atendimento excluído",
         `${existing.rows[0].protocolo} — ${existing.rows[0].cliente}`,
       ]
@@ -256,9 +305,10 @@ app.delete("/tickets/:id", async (req, res) => {
   res.json({ ok: true });
 });
 
-// Pesquisas NPS
-app.post("/nps", async (req, res) => {
-  const { survey, usuario } = req.body || {};
+// Pesquisas NPS (Exige autenticação)
+app.post("/nps", requireAuth, async (req, res) => {
+  const { survey } = req.body || {};
+  const authUser = (req as any).user;
   if (!survey || !survey.id) return res.status(400).json({ error: "Pesquisa inválida." });
 
   await pool.query(
@@ -286,19 +336,13 @@ app.post("/nps", async (req, res) => {
     `INSERT INTO sac_audit_logs (id, data, usuario, acao, detalhe) VALUES ($1, now(), $2, $3, $4)`,
     [
       `log_${Date.now()}`,
-      usuario || "Sistema",
+      authUser.name || "Operador",
       survey.status === "Respondida" ? "Resposta de pesquisa NPS registrada" : "Pesquisa NPS enviada",
       `${survey.cliente} (${survey.canal})`,
     ]
   );
 
   res.json({ ok: true, survey });
-});
-
-// Limpar base de dados (deixando apenas o usuário admin)
-app.post("/reset-demo", async (_req, res) => {
-  await seedDatabaseIfEmpty(true);
-  res.json({ ok: true });
 });
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

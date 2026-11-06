@@ -95,18 +95,32 @@ CREATE TABLE IF NOT EXISTS sac_audit_logs (
   acao VARCHAR(180) NOT NULL,
   detalhe TEXT
 );
+
+-- Políticas de Segurança (RLS) no PostgreSQL / Supabase:
+-- Bloqueia acesso público externo via PostgREST/Anon Key; apenas o Backend autenticado (postgres role) acessa.
+ALTER TABLE sac_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sac_tickets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sac_nps_surveys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sac_audit_logs ENABLE ROW LEVEL SECURITY;
 `;
 
 export async function ensureSchema() {
   const schemaPath = path.resolve(__dirname, "../../database/schema.sql");
   const sql = fs.existsSync(schemaPath) ? fs.readFileSync(schemaPath, "utf-8") : INLINE_SCHEMA;
   await pool.query(sql);
+  // Garante RLS ativo em todas as tabelas do SAC no Supabase
+  await pool.query(`
+    ALTER TABLE sac_settings ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE sac_tickets ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE sac_nps_surveys ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE sac_audit_logs ENABLE ROW LEVEL SECURITY;
+  `).catch(() => {});
 }
 
 if (require.main === module) {
   ensureSchema()
     .then(() => {
-      console.log("Schema SAC aplicado com sucesso!");
+      console.log("Schema SAC e políticas RLS aplicados com sucesso!");
       process.exit(0);
     })
     .catch((err) => {

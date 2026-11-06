@@ -2,15 +2,8 @@ import { pool } from "./db";
 import { ensureSchema } from "./migrate";
 import { defaultConfig } from "./defaults";
 
-export async function seedDatabaseIfEmpty(forceReset = false) {
+export async function seedDatabaseIfEmpty() {
   await ensureSchema();
-
-  if (forceReset) {
-    await pool.query("DELETE FROM sac_tickets");
-    await pool.query("DELETE FROM sac_nps_surveys");
-    await pool.query("DELETE FROM sac_audit_logs");
-    await pool.query("DELETE FROM sac_settings");
-  }
 
   const cfgRes = await pool.query("SELECT config FROM sac_settings WHERE id = 1");
   const cfg = defaultConfig();
@@ -18,7 +11,7 @@ export async function seedDatabaseIfEmpty(forceReset = false) {
     await pool.query("INSERT INTO sac_settings (id, config) VALUES (1, $1)", [JSON.stringify(cfg)]);
     await pool.query(
       `INSERT INTO sac_audit_logs (id, data, usuario, acao, detalhe)
-       VALUES ($1, now(), 'Sistema', 'Sistema inicializado', 'Base limpa pronta para uso em produção.')`,
+       VALUES ($1, now(), 'Sistema', 'Sistema inicializado', 'Configuração inicial criada com segurança.')`,
       [`log_${Date.now()}`]
     );
   }
@@ -84,13 +77,13 @@ export async function insertTicketRow(t: any) {
 }
 
 if (require.main === module) {
-  seedDatabaseIfEmpty(true)
+  seedDatabaseIfEmpty()
     .then(() => {
-      console.log("Banco SAC limpo e configurado apenas com o usuário admin (senha: via@123)!");
+      console.log("Schema e configurações iniciais verificados com sucesso!");
       process.exit(0);
     })
     .catch((err) => {
-      console.error("Erro ao limpar/configurar banco SAC:", err);
+      console.error("Erro ao verificar banco SAC:", err);
       process.exit(1);
     });
 }
