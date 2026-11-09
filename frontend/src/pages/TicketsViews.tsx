@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
-  ChevronRight, AlertTriangle, Save, Check, PlusCircle, Search, Trash2, ChevronDown, ChevronUp
+  ChevronRight, AlertTriangle, Save, Check, PlusCircle, Search, Trash2, ChevronDown, ChevronUp, Edit3
 } from "lucide-react";
 import {
   C, FONT_DISPLAY, FONT_SANS, Card, Button, Field, TInput, TSelect, TTextArea,
-  Badge, ProtocolTag, EmptyState, fmtCurrency, fmtDate, fmtDateTime,
+  Badge, ProtocolTag, EmptyState, Modal, fmtCurrency, fmtDate, fmtDateTime,
   WHATSAPP_ICON_URL, buildWhatsAppLink
 } from "../components/ui";
 import { FRETE_PAGADORES } from "../defaults";
@@ -967,6 +967,76 @@ export function DetalheView({
   const [showResolucao, setShowResolucao] = useState(false);
   const [solucao, setSolucao] = useState(ticket.solucao || "");
   const [npsInput, setNpsInput] = useState<any>(ticket.nps ?? "");
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editForm, setEditForm] = useState<any>({
+    cliente: "",
+    telefone: "",
+    documento: "",
+    email: "",
+    canal: "",
+    pedido: "",
+    notaFiscal: "",
+    valorPedido: "",
+    valorEnvolvido: "",
+    setor: "",
+    vendedor: "",
+    tipo: "",
+    categoria: "",
+    prioridade: "Média",
+    descricao: "",
+  });
+
+  const openEditModal = () => {
+    setEditForm({
+      cliente: ticket.cliente || "",
+      telefone: ticket.telefone || "",
+      documento: ticket.documento || "",
+      email: ticket.email || "",
+      canal: ticket.canal || config.canais[0] || "WhatsApp",
+      pedido: ticket.pedido || "",
+      notaFiscal: ticket.notaFiscal || "",
+      valorPedido: ticket.valorPedido ?? ticket.valorEnvolvido ?? "",
+      valorEnvolvido: ticket.valorEnvolvido ?? "",
+      setor: ticket.setor || config.setores[0] || "",
+      vendedor: ticket.vendedor || config.vendedores[0] || "",
+      tipo: ticket.tipo || config.tipos[0] || "Troca",
+      categoria: ticket.categoria || config.categorias[0] || "",
+      prioridade: ticket.prioridade || "Média",
+      descricao: ticket.descricao || "",
+    });
+    setEditModalOpen(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editForm.cliente.trim() || !editForm.pedido.trim() || !editForm.descricao.trim()) {
+      alert("Por favor, preencha os campos obrigatórios: Nome do Cliente, Nº do Pedido e Relato.");
+      return;
+    }
+    const valPed = Number(editForm.valorPedido) || 0;
+    const valEnv = Number(editForm.valorEnvolvido) || valPed;
+    onUpdate(
+      {
+        cliente: editForm.cliente.trim(),
+        telefone: editForm.telefone.trim(),
+        documento: editForm.documento.trim(),
+        email: editForm.email.trim(),
+        canal: editForm.canal,
+        pedido: editForm.pedido.trim(),
+        notaFiscal: editForm.notaFiscal.trim(),
+        valorPedido: valPed,
+        valorEnvolvido: valEnv,
+        setor: editForm.setor,
+        vendedor: editForm.vendedor,
+        tipo: editForm.tipo,
+        categoria: editForm.categoria,
+        motivo: editForm.categoria,
+        prioridade: editForm.prioridade,
+        descricao: editForm.descricao.trim(),
+      },
+      "Dados do atendimento corrigidos"
+    );
+    setEditModalOpen(false);
+  };
 
   useEffect(() => {
     setSolucao(ticket.solucao || "");
@@ -1057,6 +1127,12 @@ export function DetalheView({
               <img src={WHATSAPP_ICON_URL} alt="WhatsApp" style={{ width: 15, height: 15 }} />
               Chamar no WhatsApp
             </a>
+          )}
+
+          {canEdit && (
+            <Button size="sm" variant="secondary" icon={Edit3} onClick={openEditModal}>
+              Editar Dados
+            </Button>
           )}
 
           {!ticket.dataResolucao && canEdit && (
@@ -1210,7 +1286,16 @@ export function DetalheView({
       <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16 }}>
         {/* Coluna Esquerda: Relato + Conversa/Anotações */}
         <div style={{ display: "grid", gap: 16, alignContent: "start" }}>
-          <Card title="📋 Resumo do Pedido e Relato">
+          <Card
+            title="📋 Resumo do Pedido e Relato"
+            right={
+              canEdit && (
+                <Button size="sm" variant="ghost" icon={Edit3} onClick={openEditModal} style={{ color: C.wine, fontWeight: 700 }}>
+                  Editar Dados
+                </Button>
+              )
+            }
+          >
             <div style={{ background: C.wineSoft, border: `1px solid #FCA5A5`, padding: "12px 14px", borderRadius: 10, marginBottom: 14 }}>
               <div style={{ fontSize: 11, color: C.wine, fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>
                 O que o cliente solicitou ({ticket.tipo} — {ticket.categoria})
@@ -1285,6 +1370,167 @@ export function DetalheView({
           />
         </div>
       </div>
+
+      {/* Modal de Edição dos Dados do Atendimento */}
+      <Modal
+        open={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        title={`Editar Dados do Atendimento (${ticket.protocolo})`}
+        width={720}
+      >
+        <div style={{ display: "grid", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 12 }}>
+            <Field label="Nome do Cliente" required>
+              <TInput
+                value={editForm.cliente}
+                onChange={(e) => setEditForm((f: any) => ({ ...f, cliente: e.target.value }))}
+                placeholder="Nome do cliente"
+              />
+            </Field>
+            <Field label="WhatsApp / Telefone">
+              <TInput
+                value={editForm.telefone}
+                onChange={(e) => setEditForm((f: any) => ({ ...f, telefone: e.target.value }))}
+                placeholder="(DDD) 99999-0000"
+              />
+            </Field>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+            <Field label="Nº do Pedido" required>
+              <TInput
+                value={editForm.pedido}
+                onChange={(e) => setEditForm((f: any) => ({ ...f, pedido: e.target.value }))}
+                placeholder="Nº do pedido"
+              />
+            </Field>
+            <Field label="Valor do Pedido (R$)">
+              <TInput
+                type="number"
+                value={editForm.valorPedido}
+                onChange={(e) => setEditForm((f: any) => ({ ...f, valorPedido: e.target.value }))}
+                placeholder="0,00"
+              />
+            </Field>
+            <Field label="Valor Envolvido (R$)">
+              <TInput
+                type="number"
+                value={editForm.valorEnvolvido}
+                onChange={(e) => setEditForm((f: any) => ({ ...f, valorEnvolvido: e.target.value }))}
+                placeholder="Deixe igual se mesmo valor"
+              />
+            </Field>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+            <Field label="Setor">
+              <TSelect
+                value={editForm.setor}
+                onChange={(e) => setEditForm((f: any) => ({ ...f, setor: e.target.value }))}
+              >
+                {config.setores.map((s: string) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </TSelect>
+            </Field>
+            <Field label="Vendedor(a)">
+              <TSelect
+                value={editForm.vendedor}
+                onChange={(e) => setEditForm((f: any) => ({ ...f, vendedor: e.target.value }))}
+              >
+                {config.vendedores.map((v: string) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </TSelect>
+            </Field>
+            <Field label="Canal de Entrada">
+              <TSelect
+                value={editForm.canal}
+                onChange={(e) => setEditForm((f: any) => ({ ...f, canal: e.target.value }))}
+              >
+                {config.canais.map((c: string) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </TSelect>
+            </Field>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+            <Field label="Tipo de Solicitação" required>
+              <TSelect
+                value={editForm.tipo}
+                onChange={(e) => setEditForm((f: any) => ({ ...f, tipo: e.target.value }))}
+              >
+                {config.tipos.map((t: string) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </TSelect>
+            </Field>
+            <Field label="Motivo / Categoria" required>
+              <TSelect
+                value={editForm.categoria}
+                onChange={(e) => setEditForm((f: any) => ({ ...f, categoria: e.target.value }))}
+              >
+                {config.categorias.map((c: string) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </TSelect>
+            </Field>
+            <Field label="Prioridade">
+              <TSelect
+                value={editForm.prioridade}
+                onChange={(e) => setEditForm((f: any) => ({ ...f, prioridade: e.target.value }))}
+              >
+                {config.prioridades.map((p: string) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </TSelect>
+            </Field>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+            <Field label="CPF / CNPJ">
+              <TInput
+                value={editForm.documento}
+                onChange={(e) => setEditForm((f: any) => ({ ...f, documento: e.target.value }))}
+                placeholder="000.000.000-00"
+              />
+            </Field>
+            <Field label="Nota Fiscal">
+              <TInput
+                value={editForm.notaFiscal}
+                onChange={(e) => setEditForm((f: any) => ({ ...f, notaFiscal: e.target.value }))}
+                placeholder="Nº NF"
+              />
+            </Field>
+            <Field label="E-mail">
+              <TInput
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm((f: any) => ({ ...f, email: e.target.value }))}
+                placeholder="cliente@email.com"
+              />
+            </Field>
+          </div>
+
+          <Field label="Relato da Ocorrência" required>
+            <TTextArea
+              value={editForm.descricao}
+              onChange={(e) => setEditForm((f: any) => ({ ...f, descricao: e.target.value }))}
+              style={{ minHeight: 85 }}
+            />
+          </Field>
+
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
+            <Button variant="ghost" onClick={() => setEditModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button variant="primary" icon={Save} onClick={handleSaveEdit}>
+              Salvar Alterações
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
