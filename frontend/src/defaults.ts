@@ -49,8 +49,8 @@ export const DEFAULT_USUARIOS = [
 export const PERMS: Record<string, { verTudo: boolean; editarTudo: boolean; excluir: boolean; administrar: boolean; exportar: boolean }> = {
   "Administrador": { verTudo: true, editarTudo: true, excluir: true, administrar: true, exportar: true },
   "Gestor": { verTudo: true, editarTudo: true, excluir: false, administrar: false, exportar: true },
-  "Atendente SAC": { verTudo: false, editarTudo: false, excluir: false, administrar: false, exportar: false },
-  "Visualização": { verTudo: true, editarTudo: false, excluir: false, administrar: false, exportar: false },
+  "Atendente SAC": { verTudo: true, editarTudo: true, excluir: false, administrar: false, exportar: false },
+  "Visualização": { verTudo: true, editarTudo: true, excluir: false, administrar: false, exportar: false },
 };
 
 export function uid(prefix = "id") {

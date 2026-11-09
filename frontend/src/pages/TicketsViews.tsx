@@ -1047,7 +1047,7 @@ export function DetalheView({
   const isFinal = ["Resolvido", "Finalizado", "Cancelado", "Recusado"].includes(ticket.status);
   const atrasado = !isFinal && new Date(ticket.prazo) < new Date();
   const waUrl = buildWhatsAppLink(ticket.telefone, ticket.cliente, ticket.protocolo);
-  const canEdit = perms.editarTudo || perms.verTudo === false;
+  const canEdit = true; // Qualquer operador/usuário pode editar atendimentos para corrigir erros
 
   const handleQuickStep = (newStatus: string) => {
     if (!canEdit || newStatus === ticket.status) return;
