@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS sac_tickets (
   documento VARCHAR(40),
   telefone VARCHAR(40),
   cep VARCHAR(20),
+  cidade VARCHAR(120),
+  estado VARCHAR(10),
   email VARCHAR(150),
   canal VARCHAR(60),
   pedido VARCHAR(60),
@@ -108,8 +110,10 @@ CREATE TABLE IF NOT EXISTS sac_audit_logs (
 
 CREATE INDEX IF NOT EXISTS idx_sac_audit_data ON sac_audit_logs(data DESC);
 
--- Garante coluna CEP em bases existentes
+-- Garante colunas CEP, cidade e estado em bases existentes
 ALTER TABLE sac_tickets ADD COLUMN IF NOT EXISTS cep VARCHAR(20);
+ALTER TABLE sac_tickets ADD COLUMN IF NOT EXISTS cidade VARCHAR(120);
+ALTER TABLE sac_tickets ADD COLUMN IF NOT EXISTS estado VARCHAR(10);
 
 -- Políticas de Segurança (RLS) no PostgreSQL / Supabase:
 ALTER TABLE sac_settings ENABLE ROW LEVEL SECURITY;

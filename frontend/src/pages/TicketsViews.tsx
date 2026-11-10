@@ -20,6 +20,25 @@ function formatCep(v: string) {
   return digits;
 }
 
+const BR_UFS = [
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
+  "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
+];
+
+async function fetchCepInfo(rawCep: string): Promise<{ cidade: string; estado: string } | null> {
+  const digits = rawCep.replace(/\D/g, "");
+  if (digits.length !== 8) return null;
+  try {
+    const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.erro) return null;
+    return { cidade: data.localidade || "", estado: data.uf || "" };
+  } catch {
+    return null;
+  }
+}
+
 const TIPO_ICONS: Record<string, string> = {
   "Troca": "🔄",
   "Devolução": "📦",
@@ -297,6 +316,8 @@ export function NovoAtendimentoView({
     documento: "",
     telefone: "",
     cep: "",
+    cidade: "",
+    estado: "",
     email: "",
     canal: config.canais[0] || "WhatsApp",
     pedido: "",
@@ -426,7 +447,7 @@ export function NovoAtendimentoView({
         {/* PASSO 1: DADOS DO CLIENTE E PEDIDO */}
         <Card title="1. Quem é o cliente e qual o pedido?" subtitle="Preencha os dados principais para localizar a compra">
           <div style={{ display: "grid", gap: 14 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 0.7fr", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 12 }}>
               <Field label="Nome do Cliente" required>
                 <TInput
                   value={form.cliente}
@@ -442,13 +463,42 @@ export function NovoAtendimentoView({
                   placeholder="Ex: (47) 99999-0000"
                 />
               </Field>
-              <Field label="CEP">
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "0.9fr 1.5fr 0.7fr", gap: 12 }}>
+              <Field label="CEP (preenche cidade/UF)">
                 <TInput
                   value={form.cep}
-                  onChange={(e) => set("cep", formatCep(e.target.value))}
+                  onChange={async (e) => {
+                    const formatted = formatCep(e.target.value);
+                    set("cep", formatted);
+                    const info = await fetchCepInfo(formatted);
+                    if (info) {
+                      setForm((f: any) => ({
+                        ...f,
+                        cidade: info.cidade || f.cidade,
+                        estado: info.estado || f.estado,
+                      }));
+                    }
+                  }}
                   placeholder="00000-000"
                   maxLength={9}
                 />
+              </Field>
+              <Field label="Cidade">
+                <TInput
+                  value={form.cidade}
+                  onChange={(e) => set("cidade", e.target.value)}
+                  placeholder="Ex: Blumenau"
+                />
+              </Field>
+              <Field label="Estado (UF)">
+                <TSelect value={form.estado} onChange={(e) => set("estado", e.target.value)}>
+                  <option value="">UF</option>
+                  {BR_UFS.map((uf) => (
+                    <option key={uf} value={uf}>{uf}</option>
+                  ))}
+                </TSelect>
               </Field>
             </div>
 
@@ -987,6 +1037,8 @@ export function DetalheView({
     cliente: "",
     telefone: "",
     cep: "",
+    cidade: "",
+    estado: "",
     documento: "",
     email: "",
     canal: "",
@@ -1007,6 +1059,8 @@ export function DetalheView({
       cliente: ticket.cliente || "",
       telefone: ticket.telefone || "",
       cep: ticket.cep || "",
+      cidade: ticket.cidade || "",
+      estado: ticket.estado || "",
       documento: ticket.documento || "",
       email: ticket.email || "",
       canal: ticket.canal || config.canais[0] || "WhatsApp",
@@ -1036,6 +1090,8 @@ export function DetalheView({
         cliente: editForm.cliente.trim(),
         telefone: editForm.telefone.trim(),
         cep: editForm.cep.trim(),
+        cidade: editForm.cidade.trim(),
+        estado: editForm.estado.trim(),
         documento: editForm.documento.trim(),
         email: editForm.email.trim(),
         canal: editForm.canal,
@@ -1329,6 +1385,7 @@ export function DetalheView({
                 ["Vendedor(a)", ticket.vendedor],
                 ["WhatsApp / Telefone", ticket.telefone || "—"],
                 ["CEP", ticket.cep || "—"],
+                ["Cidade / Estado", ticket.cidade ? `${ticket.cidade}${ticket.estado ? ` - ${ticket.estado}` : ""}` : ticket.estado || "—"],
                 ["Canal de Contato", ticket.canal || "—"],
                 ["Aberto em", fmtDateTime(ticket.dataAbertura)],
                 ["Prazo combinado", fmtDate(ticket.prazo)],
@@ -1398,7 +1455,7 @@ export function DetalheView({
         width={720}
       >
         <div style={{ display: "grid", gap: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 0.7fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 12 }}>
             <Field label="Nome do Cliente" required>
               <TInput
                 value={editForm.cliente}
@@ -1413,13 +1470,45 @@ export function DetalheView({
                 placeholder="(DDD) 99999-0000"
               />
             </Field>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "0.9fr 1.5fr 0.7fr", gap: 12 }}>
             <Field label="CEP">
               <TInput
                 value={editForm.cep}
-                onChange={(e) => setEditForm((f: any) => ({ ...f, cep: formatCep(e.target.value) }))}
+                onChange={async (e) => {
+                  const formatted = formatCep(e.target.value);
+                  setEditForm((f: any) => ({ ...f, cep: formatted }));
+                  const info = await fetchCepInfo(formatted);
+                  if (info) {
+                    setEditForm((f: any) => ({
+                      ...f,
+                      cidade: info.cidade || f.cidade,
+                      estado: info.estado || f.estado,
+                    }));
+                  }
+                }}
                 placeholder="00000-000"
                 maxLength={9}
               />
+            </Field>
+            <Field label="Cidade">
+              <TInput
+                value={editForm.cidade}
+                onChange={(e) => setEditForm((f: any) => ({ ...f, cidade: e.target.value }))}
+                placeholder="Cidade"
+              />
+            </Field>
+            <Field label="Estado (UF)">
+              <TSelect
+                value={editForm.estado}
+                onChange={(e) => setEditForm((f: any) => ({ ...f, estado: e.target.value }))}
+              >
+                <option value="">UF</option>
+                {BR_UFS.map((uf) => (
+                  <option key={uf} value={uf}>{uf}</option>
+                ))}
+              </TSelect>
             </Field>
           </div>
 

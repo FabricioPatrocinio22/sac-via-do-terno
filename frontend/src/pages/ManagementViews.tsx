@@ -133,7 +133,7 @@ export function RelatoriosView({ tickets }: { tickets: any[]; config: any }) {
 
   const exportCsv = () => {
     const headers = [
-      "Protocolo", "Data Abertura", "Cliente", "Telefone", "CEP", "Pedido", "Setor",
+      "Protocolo", "Data Abertura", "Cliente", "Telefone", "CEP", "Cidade", "Estado", "Pedido", "Setor",
       "Vendedor", "Tipo", "Categoria", "Status", "Prioridade", "Valor Envolvido",
       "Valor Frete", "Frete Pago Por", "Defeito Fabricacao", "NPS"
     ];
@@ -143,6 +143,8 @@ export function RelatoriosView({ tickets }: { tickets: any[]; config: any }) {
       `"${(t.cliente || "").replace(/"/g, '""')}"`,
       t.telefone || "",
       t.cep || "",
+      `"${(t.cidade || "").replace(/"/g, '""')}"`,
+      t.estado || "",
       t.pedido || "",
       t.setor || "",
       t.vendedor || "",

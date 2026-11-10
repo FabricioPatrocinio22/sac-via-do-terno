@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS sac_tickets (
   documento VARCHAR(40),
   telefone VARCHAR(40),
   cep VARCHAR(20),
+  cidade VARCHAR(120),
+  estado VARCHAR(10),
   email VARCHAR(150),
   canal VARCHAR(60),
   pedido VARCHAR(60),
@@ -111,9 +113,11 @@ export async function ensureSchema() {
   // Remove CREATE EXTENSION caso o pooler/role seja restrito; pgcrypto já vem ativo ou não é exigido após criação
   const sql = rawSql.replace(/CREATE EXTENSION IF NOT EXISTS pgcrypto;\s*/gi, "");
   await pool.query(sql);
-  // Garante coluna cep e RLS ativo em todas as tabelas do SAC no Supabase
+  // Garante colunas cep/cidade/estado e RLS ativo em todas as tabelas do SAC no Supabase
   await pool.query(`
     ALTER TABLE sac_tickets ADD COLUMN IF NOT EXISTS cep VARCHAR(20);
+    ALTER TABLE sac_tickets ADD COLUMN IF NOT EXISTS cidade VARCHAR(120);
+    ALTER TABLE sac_tickets ADD COLUMN IF NOT EXISTS estado VARCHAR(10);
     ALTER TABLE sac_settings ENABLE ROW LEVEL SECURITY;
     ALTER TABLE sac_tickets ENABLE ROW LEVEL SECURITY;
     ALTER TABLE sac_nps_surveys ENABLE ROW LEVEL SECURITY;

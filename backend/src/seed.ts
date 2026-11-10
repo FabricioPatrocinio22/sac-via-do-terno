@@ -20,7 +20,7 @@ export async function seedDatabaseIfEmpty() {
 export async function insertTicketRow(t: any) {
   await pool.query(
     `INSERT INTO sac_tickets (
-      id, protocolo, data_abertura, cliente, documento, telefone, cep, email, canal,
+      id, protocolo, data_abertura, cliente, documento, telefone, cep, cidade, estado, email, canal,
       pedido, nota_fiscal, valor_pedido, loja, setor, vendedor, tipo, motivo,
       categoria, descricao, prioridade, status, responsavel, setor_responsavel,
       prazo, valor_envolvido, valor_frete, frete_pago_por, defeito_fabricacao,
@@ -30,12 +30,14 @@ export async function insertTicketRow(t: any) {
       observacao_cliente, timeline, custom_fields, duplicidade_justificada
     ) VALUES (
       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-      $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45
+      $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47
     ) ON CONFLICT (id) DO UPDATE SET
       cliente = EXCLUDED.cliente,
       documento = EXCLUDED.documento,
       telefone = EXCLUDED.telefone,
       cep = EXCLUDED.cep,
+      cidade = EXCLUDED.cidade,
+      estado = EXCLUDED.estado,
       email = EXCLUDED.email,
       canal = EXCLUDED.canal,
       pedido = EXCLUDED.pedido,
@@ -74,7 +76,7 @@ export async function insertTicketRow(t: any) {
       updated_at = now()`,
     [
       t.id, t.protocolo, t.dataAbertura, t.cliente, t.documento || "", t.telefone || "",
-      t.cep || "", t.email || "", t.canal || "", t.pedido || "", t.notaFiscal || "",
+      t.cep || "", t.cidade || "", t.estado || "", t.email || "", t.canal || "", t.pedido || "", t.notaFiscal || "",
       Number(t.valorPedido) || 0, t.loja || "", t.setor || "", t.vendedor || "",
       t.tipo || "", t.motivo || t.categoria || "", t.categoria || "", t.descricao || "",
       t.prioridade || "Média", t.status || "Novo", t.responsavel || "",

@@ -54,6 +54,8 @@ function mapRowToTicket(r: any) {
     documento: r.documento || "",
     telefone: r.telefone || "",
     cep: r.cep || "",
+    cidade: r.cidade || "",
+    estado: r.estado || "",
     email: r.email || "",
     canal: r.canal || "",
     pedido: r.pedido || "",
