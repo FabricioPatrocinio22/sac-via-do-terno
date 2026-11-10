@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS sac_tickets (
   cliente VARCHAR(180) NOT NULL,
   documento VARCHAR(40),
   telefone VARCHAR(40),
+  cep VARCHAR(20),
   email VARCHAR(150),
   canal VARCHAR(60),
   pedido VARCHAR(60),
@@ -108,8 +109,9 @@ export async function ensureSchema() {
   const schemaPath = path.resolve(__dirname, "../../database/schema.sql");
   const sql = fs.existsSync(schemaPath) ? fs.readFileSync(schemaPath, "utf-8") : INLINE_SCHEMA;
   await pool.query(sql);
-  // Garante RLS ativo em todas as tabelas do SAC no Supabase
+  // Garante coluna cep e RLS ativo em todas as tabelas do SAC no Supabase
   await pool.query(`
+    ALTER TABLE sac_tickets ADD COLUMN IF NOT EXISTS cep VARCHAR(20);
     ALTER TABLE sac_settings ENABLE ROW LEVEL SECURITY;
     ALTER TABLE sac_tickets ENABLE ROW LEVEL SECURITY;
     ALTER TABLE sac_nps_surveys ENABLE ROW LEVEL SECURITY;

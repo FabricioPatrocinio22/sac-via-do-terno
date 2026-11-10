@@ -14,6 +14,12 @@ function ErrorText({ children }: { children: React.ReactNode }) {
   return <div style={{ color: C.danger, fontSize: 11.5, marginTop: 2, fontWeight: 600 }}>{children}</div>;
 }
 
+function formatCep(v: string) {
+  const digits = v.replace(/\D/g, "").slice(0, 8);
+  if (digits.length > 5) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+  return digits;
+}
+
 const TIPO_ICONS: Record<string, string> = {
   "Troca": "🔄",
   "Devolução": "📦",
@@ -290,6 +296,7 @@ export function NovoAtendimentoView({
     cliente: "",
     documento: "",
     telefone: "",
+    cep: "",
     email: "",
     canal: config.canais[0] || "WhatsApp",
     pedido: "",
@@ -419,7 +426,7 @@ export function NovoAtendimentoView({
         {/* PASSO 1: DADOS DO CLIENTE E PEDIDO */}
         <Card title="1. Quem é o cliente e qual o pedido?" subtitle="Preencha os dados principais para localizar a compra">
           <div style={{ display: "grid", gap: 14 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 0.7fr", gap: 12 }}>
               <Field label="Nome do Cliente" required>
                 <TInput
                   value={form.cliente}
@@ -433,6 +440,14 @@ export function NovoAtendimentoView({
                   value={form.telefone}
                   onChange={(e) => set("telefone", e.target.value)}
                   placeholder="Ex: (47) 99999-0000"
+                />
+              </Field>
+              <Field label="CEP">
+                <TInput
+                  value={form.cep}
+                  onChange={(e) => set("cep", formatCep(e.target.value))}
+                  placeholder="00000-000"
+                  maxLength={9}
                 />
               </Field>
             </div>
@@ -971,6 +986,7 @@ export function DetalheView({
   const [editForm, setEditForm] = useState<any>({
     cliente: "",
     telefone: "",
+    cep: "",
     documento: "",
     email: "",
     canal: "",
@@ -990,6 +1006,7 @@ export function DetalheView({
     setEditForm({
       cliente: ticket.cliente || "",
       telefone: ticket.telefone || "",
+      cep: ticket.cep || "",
       documento: ticket.documento || "",
       email: ticket.email || "",
       canal: ticket.canal || config.canais[0] || "WhatsApp",
@@ -1018,6 +1035,7 @@ export function DetalheView({
       {
         cliente: editForm.cliente.trim(),
         telefone: editForm.telefone.trim(),
+        cep: editForm.cep.trim(),
         documento: editForm.documento.trim(),
         email: editForm.email.trim(),
         canal: editForm.canal,
@@ -1310,6 +1328,7 @@ export function DetalheView({
                 ["Setor", ticket.setor],
                 ["Vendedor(a)", ticket.vendedor],
                 ["WhatsApp / Telefone", ticket.telefone || "—"],
+                ["CEP", ticket.cep || "—"],
                 ["Canal de Contato", ticket.canal || "—"],
                 ["Aberto em", fmtDateTime(ticket.dataAbertura)],
                 ["Prazo combinado", fmtDate(ticket.prazo)],
@@ -1379,7 +1398,7 @@ export function DetalheView({
         width={720}
       >
         <div style={{ display: "grid", gap: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 0.7fr", gap: 12 }}>
             <Field label="Nome do Cliente" required>
               <TInput
                 value={editForm.cliente}
@@ -1392,6 +1411,14 @@ export function DetalheView({
                 value={editForm.telefone}
                 onChange={(e) => setEditForm((f: any) => ({ ...f, telefone: e.target.value }))}
                 placeholder="(DDD) 99999-0000"
+              />
+            </Field>
+            <Field label="CEP">
+              <TInput
+                value={editForm.cep}
+                onChange={(e) => setEditForm((f: any) => ({ ...f, cep: formatCep(e.target.value) }))}
+                placeholder="00000-000"
+                maxLength={9}
               />
             </Field>
           </div>
