@@ -107,7 +107,9 @@ ALTER TABLE sac_audit_logs ENABLE ROW LEVEL SECURITY;
 
 export async function ensureSchema() {
   const schemaPath = path.resolve(__dirname, "../../database/schema.sql");
-  const sql = fs.existsSync(schemaPath) ? fs.readFileSync(schemaPath, "utf-8") : INLINE_SCHEMA;
+  const rawSql = fs.existsSync(schemaPath) ? fs.readFileSync(schemaPath, "utf-8") : INLINE_SCHEMA;
+  // Remove CREATE EXTENSION caso o pooler/role seja restrito; pgcrypto já vem ativo ou não é exigido após criação
+  const sql = rawSql.replace(/CREATE EXTENSION IF NOT EXISTS pgcrypto;\s*/gi, "");
   await pool.query(sql);
   // Garante coluna cep e RLS ativo em todas as tabelas do SAC no Supabase
   await pool.query(`
