@@ -335,6 +335,14 @@ app.post("/nps", requireAuth, async (req, res) => {
     ]
   );
 
+  if (survey.status === "Respondida" && survey.protocolo && survey.nota !== null && survey.nota !== undefined) {
+    const notaNum = Number(survey.nota);
+    await pool.query(
+      `UPDATE sac_tickets SET nps = $1, cliente_satisfeito = $2, updated_at = now() WHERE protocolo = $3`,
+      [notaNum, notaNum >= 7, survey.protocolo]
+    );
+  }
+
   await pool.query(
     `INSERT INTO sac_audit_logs (id, data, usuario, acao, detalhe) VALUES ($1, now(), $2, $3, $4)`,
     [
@@ -346,6 +354,80 @@ app.post("/nps", requireAuth, async (req, res) => {
   );
 
   res.json({ ok: true, survey });
+});
+
+// Endpoints públicos de avaliação NPS (sem autenticação, dados mínimos)
+app.get("/public/nps/:id", async (req, res) => {
+  const { id } = req.params;
+  if (!id) return res.status(400).json({ error: "Link inválido." });
+
+  const { rows } = await pool.query(
+    `SELECT id, cliente, protocolo, status, nota FROM sac_nps_surveys WHERE id = $1`,
+    [id]
+  );
+
+  if (rows.length === 0) {
+    return res.status(404).json({ error: "Pesquisa de avaliação não encontrada." });
+  }
+
+  const row = rows[0];
+  res.json({
+    id: row.id,
+    cliente: row.cliente,
+    protocolo: row.protocolo || null,
+    status: row.status,
+    nota: row.nota ?? null,
+  });
+});
+
+app.post("/public/nps/:id/respond", async (req, res) => {
+  const { id } = req.params;
+  const { nota, comentario } = req.body || {};
+
+  const notaNum = Number(nota);
+  if (!Number.isInteger(notaNum) || notaNum < 0 || notaNum > 10) {
+    return res.status(400).json({ error: "Informe uma nota inteira entre 0 e 10." });
+  }
+
+  const { rows } = await pool.query(
+    `SELECT id, cliente, protocolo, canal, status FROM sac_nps_surveys WHERE id = $1`,
+    [id]
+  );
+
+  if (rows.length === 0) {
+    return res.status(404).json({ error: "Pesquisa de avaliação não encontrada." });
+  }
+
+  const survey = rows[0];
+  if (survey.status === "Respondida") {
+    return res.status(409).json({ error: "Esta avaliação já foi respondida anteriormente." });
+  }
+
+  const cleanComment = typeof comentario === "string" ? comentario.trim().slice(0, 1000) : "";
+
+  await pool.query(
+    `UPDATE sac_nps_surveys SET status = 'Respondida', nota = $1, comentario = $2, data_resposta = now() WHERE id = $3`,
+    [notaNum, cleanComment, id]
+  );
+
+  if (survey.protocolo) {
+    await pool.query(
+      `UPDATE sac_tickets SET nps = $1, cliente_satisfeito = $2, updated_at = now() WHERE protocolo = $3`,
+      [notaNum, notaNum >= 7, survey.protocolo]
+    );
+  }
+
+  await pool.query(
+    `INSERT INTO sac_audit_logs (id, data, usuario, acao, detalhe) VALUES ($1, now(), $2, $3, $4)`,
+    [
+      `log_${Date.now()}`,
+      survey.cliente,
+      "Pesquisa NPS respondida pelo cliente",
+      `${survey.cliente} — Nota ${notaNum}/10${survey.protocolo ? ` (${survey.protocolo})` : ""}`,
+    ]
+  );
+
+  res.json({ ok: true, id, status: "Respondida", nota: notaNum });
 });
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

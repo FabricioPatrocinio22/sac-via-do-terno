@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
-  ChevronRight, AlertTriangle, Save, Check, PlusCircle, Search, Trash2, ChevronDown, ChevronUp, Edit3
+  ChevronRight, AlertTriangle, Save, Check, PlusCircle, Search, Trash2, ChevronDown, ChevronUp, Edit3, Copy
 } from "lucide-react";
 import {
   C, FONT_DISPLAY, FONT_SANS, Card, Button, Field, TInput, TSelect, TTextArea,
@@ -1020,6 +1020,7 @@ export function DetalheView({
   onBack,
   onUpdate,
   onDelete,
+  onCopyNpsLink,
 }: {
   ticket: any;
   config: any;
@@ -1027,6 +1028,7 @@ export function DetalheView({
   onBack: () => void;
   onUpdate: (patch: any, label: string) => void;
   onDelete?: (id: string) => void;
+  onCopyNpsLink?: () => void;
 }) {
   const [obs, setObs] = useState("");
   const [showResolucao, setShowResolucao] = useState(false);
@@ -1206,6 +1208,12 @@ export function DetalheView({
           {canEdit && (
             <Button size="sm" variant="secondary" icon={Edit3} onClick={openEditModal}>
               Editar Dados
+            </Button>
+          )}
+
+          {onCopyNpsLink && (
+            <Button size="sm" variant="secondary" icon={Copy} onClick={onCopyNpsLink}>
+              Copiar Link NPS
             </Button>
           )}
 

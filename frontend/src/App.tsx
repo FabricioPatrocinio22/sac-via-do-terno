@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { ShieldCheck, PlusCircle } from "lucide-react";
 import Login, { SacAuthUser } from "./pages/Login";
+import PublicNpsView from "./pages/PublicNpsView";
 import DashboardView from "./pages/DashboardView";
 import KanbanSacView from "./pages/KanbanSacView";
 import {
@@ -595,10 +596,52 @@ export default function App() {
     setUser(null);
   }
 
+  const copyNpsLink = async (surveyId: string) => {
+    const url = `${window.location.origin}/?avaliar=${encodeURIComponent(surveyId)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast("Link de avaliação copiado! Cole no WhatsApp ou e-mail do cliente.");
+    } catch {
+      window.prompt("Copie o link de avaliação abaixo:", url);
+    }
+  };
+
+  const copyNpsLinkForTicket = async (ticket: any) => {
+    const existing = npsSurveys.find(
+      (s) => s.protocolo === ticket.protocolo && s.status === "Enviada"
+    );
+    if (existing) {
+      await copyNpsLink(existing.id);
+      return;
+    }
+    const survey = {
+      id: uid("nps"),
+      cliente: ticket.cliente,
+      protocolo: ticket.protocolo || null,
+      canal: ticket.canal || "WhatsApp",
+      status: "Enviada",
+      nota: null,
+      comentario: "",
+      dataResposta: null,
+      dataEnvio: new Date().toISOString(),
+    };
+    setNpsSurveys((prev) => [survey, ...prev]);
+    addAudit("Link de pesquisa NPS gerado", `${survey.cliente} (${survey.protocolo || survey.canal})`);
+    if (backendConnected) {
+      sacApi.saveNps(survey, currentUser).catch(() => {});
+    }
+    await copyNpsLink(survey.id);
+  };
+
   const pendentesCount = useMemo(
     () => tickets.filter((t) => !["Resolvido", "Finalizado", "Cancelado", "Recusado"].includes(t.status)).length,
     [tickets]
   );
+
+  const avaliarId = new URLSearchParams(window.location.search).get("avaliar");
+  if (avaliarId) {
+    return <PublicNpsView surveyId={avaliarId} />;
+  }
 
   if (!user) {
     return <Login onLogin={handleLogin} />;
@@ -763,6 +806,7 @@ export default function App() {
               onBack={() => setView("atendimentos")}
               onUpdate={(patch, label) => updateTicket(selectedTicket.id, patch, label)}
               onDelete={deleteTicket}
+              onCopyNpsLink={() => copyNpsLinkForTicket(selectedTicket)}
             />
           )}
 
@@ -787,6 +831,7 @@ export default function App() {
               surveys={npsSurveys}
               onAddSurvey={addNpsSurvey}
               onRespondSurvey={respondNpsSurvey}
+              onCopyNpsLink={copyNpsLink}
             />
           )}
 

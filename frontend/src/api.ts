@@ -39,4 +39,10 @@ export const sacApi = {
     req(`/tickets/${id}`, { method: "DELETE", body: JSON.stringify({ usuario }) }),
   saveNps: (survey: any, usuario: string) =>
     req("/nps", { method: "POST", body: JSON.stringify({ survey, usuario }) }),
+  getPublicNps: (id: string) => req(`/public/nps/${encodeURIComponent(id)}`),
+  respondPublicNps: (id: string, nota: number, comentario: string) =>
+    req(`/public/nps/${encodeURIComponent(id)}/respond`, {
+      method: "POST",
+      body: JSON.stringify({ nota, comentario }),
+    }),
 };

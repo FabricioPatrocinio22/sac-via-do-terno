@@ -4,7 +4,7 @@ import {
 } from "recharts";
 import {
   Download, Smile, PlusCircle, Save, Check, CircleDot, Plus, Edit3,
-  Trash2, EyeOff, Eye, ShieldCheck, Search
+  Trash2, EyeOff, Eye, ShieldCheck, Search, Copy
 } from "lucide-react";
 import {
   C, BRAND, FONT_SANS, FONT_MONO, Card, KpiCard, Button, Field, TInput, TSelect,
@@ -19,12 +19,14 @@ export function RelatoriosHubView({
   surveys,
   onAddSurvey,
   onRespondSurvey,
+  onCopyNpsLink,
 }: {
   tickets: any[];
   config: any;
   surveys: any[];
   onAddSurvey: (data: any) => void;
   onRespondSurvey: (id: string, nota: number, comentario: string) => void;
+  onCopyNpsLink?: (surveyId: string) => void;
 }) {
   const [section, setSection] = useState("relatorios");
 
@@ -87,6 +89,7 @@ export function RelatoriosHubView({
           surveys={surveys}
           onAddSurvey={onAddSurvey}
           onRespondSurvey={onRespondSurvey}
+          onCopyNpsLink={onCopyNpsLink}
         />
       )}
       {section === "analise" && <AnaliseView tickets={tickets} config={config} />}
@@ -254,12 +257,14 @@ export function NpsView({
   surveys,
   onAddSurvey,
   onRespondSurvey,
+  onCopyNpsLink,
 }: {
   tickets: any[];
   config: any;
   surveys: any[];
   onAddSurvey: (data: any) => void;
   onRespondSurvey: (id: string, nota: number, comentario: string) => void;
+  onCopyNpsLink?: (surveyId: string) => void;
 }) {
   const [tab, setTab] = useState("visao");
 
@@ -417,7 +422,12 @@ export function NpsView({
       )}
 
       {tab === "pesquisas" && (
-        <PesquisasNpsTab surveys={surveys} onAddSurvey={onAddSurvey} onRespondSurvey={onRespondSurvey} />
+        <PesquisasNpsTab
+          surveys={surveys}
+          onAddSurvey={onAddSurvey}
+          onRespondSurvey={onRespondSurvey}
+          onCopyNpsLink={onCopyNpsLink}
+        />
       )}
     </div>
   );
@@ -427,10 +437,12 @@ function PesquisasNpsTab({
   surveys,
   onAddSurvey,
   onRespondSurvey,
+  onCopyNpsLink,
 }: {
   surveys: any[];
   onAddSurvey: (data: any) => void;
   onRespondSurvey: (id: string, nota: number, comentario: string) => void;
+  onCopyNpsLink?: (surveyId: string) => void;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [respondModal, setRespondModal] = useState<any>(null);
@@ -506,9 +518,16 @@ function PesquisasNpsTab({
                     <td><strong>{s.nota ?? "—"}</strong></td>
                     <td>
                       {s.status === "Enviada" && (
-                        <Button size="sm" variant="secondary" onClick={() => openRespond(s)}>
-                          Informar Nota
-                        </Button>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {onCopyNpsLink && (
+                            <Button size="sm" variant="secondary" icon={Copy} onClick={() => onCopyNpsLink(s.id)}>
+                              Copiar Link
+                            </Button>
+                          )}
+                          <Button size="sm" variant="secondary" onClick={() => openRespond(s)}>
+                            Informar Nota
+                          </Button>
+                        </div>
                       )}
                     </td>
                   </tr>
